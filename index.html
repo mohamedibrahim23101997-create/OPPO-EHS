@@ -3641,6 +3641,7 @@
                     <Cell ss:StyleID="Header"><Data ss:Type="String">Employee Name</Data></Cell>
                     <Cell ss:StyleID="Header"><Data ss:Type="String">Department</Data></Cell>
                     <Cell ss:StyleID="Header"><Data ss:Type="String">Login Count</Data></Cell>
+                    <Cell ss:StyleID="Header"><Data ss:Type="String">Total Play Time</Data></Cell>
                     <Cell ss:StyleID="Header"><Data ss:Type="String">Violations Found (out of 52)</Data></Cell>
                     <Cell ss:StyleID="Header"><Data ss:Type="String">Cumulative Score</Data></Cell>
                     <Cell ss:StyleID="Header"><Data ss:Type="String">Qualification &amp; Prizes</Data></Cell>
@@ -3655,6 +3656,7 @@
                     <Cell><Data ss:Type="String">${escXml(p.name)}</Data></Cell>
                     <Cell><Data ss:Type="String">${escXml(p.dept)}</Data></Cell>
                     <Cell><Data ss:Type="Number">${p.loginCount}</Data></Cell>
+                    <Cell><Data ss:Type="String">${escXml(formatDuration(p.totalDurationSec || 0))}</Data></Cell>
                     <Cell><Data ss:Type="Number">${p.found}</Data></Cell>
                     <Cell><Data ss:Type="Number">${p.score}</Data></Cell>
                     <Cell><Data ss:Type="String">${escXml(prizes)}</Data></Cell>
@@ -3735,6 +3737,7 @@
    <Column ss:Width="170"/>
    <Column ss:Width="140"/>
    <Column ss:Width="90"/>
+   <Column ss:Width="100"/>
    <Column ss:Width="140"/>
    <Column ss:Width="120"/>
    <Column ss:Width="310"/>
@@ -3861,7 +3864,7 @@
             if (participants.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="8" class="py-5 px-3 text-slate-400 font-semibold">
+                        <td colspan="9" class="py-5 px-3 text-slate-400 font-semibold">
                             لا يوجد مشاركون مسجلون بعد
                         </td>
                     </tr>`;
@@ -4407,6 +4410,7 @@
             setInterval(() => { if(appState.loggedIn && !appState.supervisorMode) saveSessionProgress(); }, 20000);
             window.addEventListener('pagehide', () => {
                 if(supabaseClient && activeDbSessionId) {
+                    saveSessionProgress();
                     const now = new Date().toISOString();
                     const payload={status:'offline',logout_at:now,last_seen_at:now,hazards_found:appState.foundHazards.size,score:appState.score,current_zone:appState.currentZoneLabel,accuracy:computeAccuracy()};
                     supabaseClient.from('ehs_game_sessions').update(payload).eq('id',activeDbSessionId);
