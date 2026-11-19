@@ -963,6 +963,7 @@
         const supabaseClient = (window.supabase && SUPABASE_URL.includes('.supabase.co') && !SUPABASE_URL.includes('YOUR_PROJECT_REF') && !SUPABASE_ANON_KEY.includes('YOUR_'))
             ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
         let activeDbSessionId = null;
+        let activeUserId = null;
         let supervisorRefreshTimer = null;
 
         function requireBackend() {
@@ -992,6 +993,7 @@
                 full_name: appState.user.name,
                 department: appState.user.dept,
                 found_hazard_ids: foundIds,
+                legacy_hazards_count: Array.from(appState.foundHazards.keys()).filter(id => String(id).startsWith('legacy-')).length,
                 checked_asset_ids: Array.from(appState.checkedAssets),
                 score: appState.score,
                 false_alarms: appState.falseAlarms,
@@ -1013,7 +1015,7 @@
             appState.checkedAssets.clear();
             appState.falseAlarms = Number(progress?.false_alarms || 0);
             const savedIds = Array.isArray(progress?.found_hazard_ids) ? progress.found_hazard_ids : [];
-            const legacyCount = progress ? 0 : Math.max(0, ...((oldSessions || []).map(x => Number(x.hazards_found || 0))));
+            const legacyCount = progress ? Number(progress.legacy_hazards_count || 0) : Math.max(0, ...((oldSessions || []).map(x => Number(x.hazards_found || 0))));
             const registryById = new Map(hazardRegistry.map(h => [String(h.id), h]));
             savedIds.forEach(id => {
                 const hazard = registryById.get(String(id));
@@ -1160,7 +1162,6 @@
         const participants = [];
         const supervisorBeacons = [];
         let activeDbSessionId = null;
-        let activeUserId = null;
 
         function formatDuration(sec) {
             const s = Math.max(0, Math.floor(sec));
@@ -1222,9 +1223,10 @@
                     name,
                     dept,
                     loginCount: 1,
-                    found: 0,
-                    score: 0,
-                    accuracy: 100
+                    found: appState.foundHazards.size,
+                    score: appState.score,
+                    accuracy: computeAccuracy(),
+                    totalDurationSec: 0
                 });
             }
         }
@@ -3588,7 +3590,7 @@
                     accuracy: acc
                 });
             }
-            participants.sort((a, b) => b.found - a.found || b.score - a.score);
+            participants.sort((a, b) => b.score - a.score || b.found - a.found || b.accuracy - a.accuracy);
             saveSessionProgress();
         }
 
@@ -3646,7 +3648,7 @@
                 </Row>`;
 
             participants.forEach((p, idx) => {
-                const prizes = computePrizes(p.found).join(' + ');
+                const prizes = prizeForRank(idx + 1);
                 sheet1Rows += `
                 <Row>
                     <Cell><Data ss:Type="Number">${idx + 1}</Data></Cell>
@@ -3877,20 +3879,13 @@
                         <td class="py-2.5 px-2.5 font-mono text-emerald-300">${p.id}</td>
                         <td class="py-2.5 px-2.5">${p.dept}</td>
                         <td class="py-2.5 px-2.5 font-mono font-bold text-sky-300">${p.loginCount}</td>
+                        <td class="py-2.5 px-2.5 font-mono text-sky-200">${formatDuration(p.totalDurationSec || 0)}</td>
                         <td class="py-2.5 px-2.5 font-extrabold text-emerald-400">${p.found} / 52</td>
                         <td class="py-2.5 px-2.5 font-extrabold text-amber-300">${p.score}</td>
                         <td class="py-2.5 px-2.5">
                             <div class="flex flex-wrap justify-center gap-1">
                                 <span class="px-2 py-0.5 rounded-full ${qualified ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-200' : 'bg-slate-800 border-slate-700 text-slate-300'}">${prizes}</span>
                                 ${p.totalDurationSec !== undefined ? `<span class="text-slate-400">${formatDuration(p.totalDurationSec)}</span>` : '' }
-                            </div>
-                        </td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            }
-
-            constt-slate-400'} border text-[10px] font-bold">${pr}</span>`).join('')}
                             </div>
                         </td>
                     `;
@@ -4195,10 +4190,6 @@
             });
 
             document.getElementById('tracking-search').addEventListener('input', renderLeaderboardModal);
-
-            document.getElementById('btn-show-rules').addEventListener('click', () => {
-                document.getElementById('login-modal').classList.remove('hidden');
-            });
 
             // HUD Action Buttons
             document.getElementById('btn-roof-toggle').addEventListener('click', () => setRoofMode(appState.roofMode + 1));
