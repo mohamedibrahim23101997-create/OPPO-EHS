@@ -949,7 +949,8 @@
             })).filter(x=>x.employee_id||x.full_name||x.department);
             if(!employees.length){status.textContent='لم يتم العثور على بيانات موظفين في الورقة.';return;}
             const {data:{session}}=await db.auth.getSession();
-            const response=await fetch(`${SUPABASE_URL}/functions/v1/import-employees`,{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify({employees})});
+            if(!session?.access_token) throw new Error('انتهت جلسة المشرف. سجّل الدخول مرة أخرى.');
+            const response=await fetch('/api/import-employees',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify({employees})});
             const result=await response.json();
             if(!response.ok) throw new Error(result.error||'فشل استيراد الموظفين');
             if(result.credentials?.length){
