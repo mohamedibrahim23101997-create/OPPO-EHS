@@ -976,11 +976,22 @@
             if(!response.ok) throw new Error(result.error||'فشل استيراد الموظفين');
             pendingEmployeeCredentials = Array.isArray(result.credentials) ? result.credentials : [];
             const downloadBtn=document.getElementById('btn-download-employee-passwords');
-            downloadBtn.classList.toggle('hidden', pendingEmployeeCredentials.length===0);
+
+            // أظهر عنصر التحميل بعد كل عملية استيراد ناجحة، حتى لو لم تُنشأ كلمات مرور جديدة.
+            // لا تسمح بالتنزيل إلا عندما تُرجع الخادم كلمات مرور مؤقتة فعلية.
+            downloadBtn.classList.remove('hidden');
+            downloadBtn.style.display = 'inline-flex';
+            downloadBtn.disabled = pendingEmployeeCredentials.length === 0;
+            downloadBtn.style.opacity = downloadBtn.disabled ? '0.55' : '1';
+            downloadBtn.style.cursor = downloadBtn.disabled ? 'not-allowed' : 'pointer';
+            downloadBtn.textContent = pendingEmployeeCredentials.length
+                ? '📥 تحميل ملف كلمات المرور (Excel)'
+                : 'لا توجد كلمات مرور جديدة للتنزيل';
+
             if(pendingEmployeeCredentials.length){
                 status.textContent=`تم إنشاء ${result.created||0} حساب جديد وتحديث ${result.updated||0} حساب موجود. اضغط زر "تحميل ملف كلمات المرور" لإتمام التنزيل.`;
             } else {
-                status.textContent=`تمت المعالجة: ${result.created||0} حساب جديد، و${result.updated||0} حساب موجود. لم يتم إصدار كلمات مرور جديدة؛ الحسابات الموجودة تحتفظ بكلمات مرورها الحالية.`;
+                status.textContent=`تمت المعالجة: ${result.created||0} حساب جديد، و${result.updated||0} حساب موجود. لا توجد كلمات مرور جديدة؛ الحسابات الموجودة تحتفظ بكلمات مرورها الحالية.`;
             }
             await loadSupervisorData();
         }
