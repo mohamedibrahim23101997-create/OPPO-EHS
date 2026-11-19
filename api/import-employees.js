@@ -1,17 +1,13 @@
 const { createClient } = require('@supabase/supabase-js');
-const crypto = require('crypto');
 
 const SUPERVISOR_EMAIL = 'mo.i.kafrana@gmail.com';
+const SUPERVISOR_EMPLOYEE_ID = 'EG800218';
 const EMAIL_DOMAIN = '@employees.oppoegypt.com';
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://moeqybgkljihzkighajt.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_fbQU44FBUqbntzEUpjxFIA_qIVlpnmn';
 
 function send(res, status, body) { return res.status(status).json(body); }
 function clean(value) { return String(value ?? '').trim(); }
-function temporaryPassword() {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
-  return Array.from(crypto.randomBytes(18), byte => alphabet[byte % alphabet.length]).join('');
-}
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -62,9 +58,13 @@ module.exports = async function handler(req, res) {
     if (gameError) throw new Error('تعذر قراءة دليل الموظفين: ' + gameError.message);
     const gameByEmployee = new Map((gameProfiles || []).map(p => [clean(p.employee_id).toUpperCase(), p]));
 
-    const seen = new Set(), credentials = [], errors = [];
-    let created = 0, updated = 0;
-    const authUsersByEmail = new Map(), authUsersByEmployee = new Map();
+    const seen = new Set();
+    const credentials = [];
+    const errors = [];
+    let created = 0, updated = 0, passwordsSet = 0;
+    const authUsersByEmail = new Map();
+    const authUsersByEmployee = new Map();
+
     for (let page = 1; page <= 20; page++) {
       const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
       if (error) throw new Error('تعذرت مراجعة حسابات الدخول الحالية: ' + error.message);
@@ -81,6 +81,8 @@ module.exports = async function handler(req, res) {
       const employee_id = clean(row.employee_id).toUpperCase();
       const full_name = clean(row.full_name);
       const department = clean(row.department);
+      const password = String(row.temporary_password ?? '');
+
       if (!employee_id || !full_name || !department) {
         errors.push({ row: i + 2, employee_id, error: 'الرقم الوظيفي والاسم والقسم مطلوبة.' });
         continue;
@@ -90,6 +92,16 @@ module.exports = async function handler(req, res) {
         continue;
       }
       seen.add(employee_id);
+
+      // Protect the supervisor identity independently of the spreadsheet contents.
+      if (employee_id === SUPERVISOR_EMPLOYEE_ID) {
+        errors.push({ row: i + 2, employee_id, error: 'تم استثناء حساب المشرف EG800218 من الاستيراد وتغيير كلمة المرور.' });
+        continue;
+      }
+      if (!password.trim()) {
+        errors.push({ row: i + 2, employee_id, error: 'عمود temporary_password فارغ؛ لم يتم إنشاء الحساب أو تغيير كلمة مروره.' });
+        continue;
+      }
 
       const legacy = legacyByEmployee.get(employee_id);
       if (legacy && String(legacy.role || '').toLowerCase() === 'admin') {
@@ -113,9 +125,10 @@ module.exports = async function handler(req, res) {
 
       let createdNow = false;
       if (!userId) {
-        const password = temporaryPassword();
         const { data: newUser, error: createError } = await admin.auth.admin.createUser({
-          email, password, email_confirm: true,
+          email,
+          password,
+          email_confirm: true,
           user_metadata: { employee_id, full_name, department, account_type: 'ehs_employee' }
         });
         if (createError) {
@@ -123,25 +136,42 @@ module.exports = async function handler(req, res) {
           continue;
         }
         userId = newUser.user.id;
-        authUsersByEmail.set(email, newUser.user);
-        authUsersByEmployee.set(employee_id, newUser.user);
-        credentials.push({ employee_id, full_name, department, temporary_password: password });
-        created++;
         createdNow = true;
       }
 
+      // Save the employee directory first. No participation, score, or session tables are touched.
       const { error: upsertError } = await admin.from('ehs_game_employees').upsert({
         user_id: userId, employee_id, full_name, department, updated_at: new Date().toISOString()
       }, { onConflict: 'employee_id' });
+
       if (upsertError) {
-        errors.push({ row: i + 2, employee_id, error: 'فشل حفظ بيانات الموظف: ' + upsertError.message });
-        if (createdNow) credentials.pop();
+        let cleanupNote = '';
+        if (createdNow) {
+          const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
+          if (deleteError) cleanupNote = ' كما تعذر حذف حساب الدخول الجديد غير المرتبط: ' + deleteError.message;
+        }
+        errors.push({ row: i + 2, employee_id, error: 'فشل حفظ بيانات الموظف: ' + upsertError.message + cleanupNote });
         continue;
       }
-      if (!createdNow) updated++;
+
+      // Reset existing users, or confirm the spreadsheet password for newly-created users.
+      if (!createdNow) {
+        const { error: passwordError } = await admin.auth.admin.updateUserById(userId, {
+          password,
+          user_metadata: { employee_id, full_name, department, account_type: 'ehs_employee' }
+        });
+        if (passwordError) {
+          errors.push({ row: i + 2, employee_id, error: 'تم حفظ بيانات الموظف لكن تعذر تعيين كلمة المرور: ' + passwordError.message });
+          continue;
+        }
+      }
+
+      credentials.push({ employee_id, full_name, department, temporary_password: password });
+      passwordsSet++;
+      if (createdNow) created++; else updated++;
     }
 
-    return send(res, 200, { created, updated, errors, credentials });
+    return send(res, 200, { created, updated, passwordsSet, errors, credentials });
   } catch (error) {
     console.error('Employee import failed:', error);
     return send(res, 500, { error: error instanceof Error ? error.message : 'حدث خطأ غير متوقع أثناء الاستيراد.' });
