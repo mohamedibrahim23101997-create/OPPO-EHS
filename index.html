@@ -95,6 +95,44 @@
         @media (max-width: 380px) {
             #mobile-nav-pad { left: 10px; bottom: 12px; grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(3, 46px); gap: 4px; padding: 7px; }
         }
+
+        /* Dedicated 360-degree touch ring for camera orbit */
+        #camera-orbit-pad {
+            position: fixed; right: 18px; bottom: 22px; z-index: 36;
+            width: 142px; height: 142px; border-radius: 50%;
+            display: none; align-items: center; justify-content: center;
+            border: 2px solid rgba(52, 211, 153, .72);
+            background: radial-gradient(circle, rgba(5,150,105,.24) 0 42%, rgba(2,12,10,.55) 44% 68%, rgba(16,185,129,.16) 70% 100%);
+            box-shadow: 0 8px 28px rgba(0,0,0,.38), inset 0 0 18px rgba(52,211,153,.16);
+            backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px);
+            touch-action: none; user-select: none; -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #camera-orbit-pad::before {
+            content: ''; position: absolute; inset: 13px; border-radius: 50%;
+            border: 1px dashed rgba(167,243,208,.58); pointer-events: none;
+        }
+        #camera-orbit-pad .orbit-label {
+            color: #d1fae5; font: 900 11px Inter, sans-serif;
+            text-align: center; text-shadow: 0 1px 5px #022c22;
+            pointer-events: none; line-height: 1.4;
+        }
+        #camera-orbit-pad .orbit-dot {
+            position: absolute; width: 18px; height: 18px; border-radius: 50%;
+            background: #fbbf24; border: 2px solid #fff;
+            box-shadow: 0 0 12px rgba(251,191,36,.8);
+            pointer-events: none; transform: translate(0,0);
+        }
+        #camera-orbit-pad.is-active {
+            border-color: #fbbf24;
+            background: radial-gradient(circle, rgba(5,150,105,.32) 0 42%, rgba(2,12,10,.7) 44% 68%, rgba(245,158,11,.2) 70% 100%);
+        }
+        @media (pointer: coarse), (max-width: 768px) {
+            #camera-orbit-pad { display: flex; }
+        }
+        @media (max-width: 380px) {
+            #camera-orbit-pad { width: 116px; height: 116px; right: 10px; bottom: 12px; }
+        }
     </style>
 </head>
 <body class="text-slate-100">
@@ -1632,6 +1670,66 @@
             controls.target.add(movement);
         }
 
+
+        function setupCameraOrbitPad() {
+            const pad = document.createElement('div');
+            pad.id = 'camera-orbit-pad';
+            pad.setAttribute('role', 'application');
+            pad.setAttribute('aria-label', 'اسحب إصبعك داخل الدائرة لتدوير الكاميرا 360 درجة');
+            pad.innerHTML = '<span class="orbit-label">360°<br>CAMERA</span><span class="orbit-dot"></span>';
+            document.body.appendChild(pad);
+            const dot = pad.querySelector('.orbit-dot');
+            let activePointer = null;
+            let lastX = 0, lastY = 0;
+            const spherical = new THREE.Spherical();
+            const offset = new THREE.Vector3();
+            const rotateSpeed = 0.008;
+            pad.addEventListener('pointerdown', event => {
+                if (event.pointerType === 'mouse' && event.button !== 0) return;
+                event.preventDefault();
+                event.stopPropagation();
+                activePointer = event.pointerId;
+                lastX = event.clientX;
+                lastY = event.clientY;
+                pad.classList.add('is-active');
+                try { pad.setPointerCapture(event.pointerId); } catch (_) {}
+            });
+            pad.addEventListener('pointermove', event => {
+                if (activePointer !== event.pointerId || !camera || !controls) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const dx = event.clientX - lastX;
+                const dy = event.clientY - lastY;
+                lastX = event.clientX;
+                lastY = event.clientY;
+                offset.copy(camera.position).sub(controls.target);
+                spherical.setFromVector3(offset);
+                spherical.theta -= dx * rotateSpeed;
+                spherical.phi -= dy * rotateSpeed;
+                spherical.phi = Math.max(0.015, Math.min(Math.PI - 0.015, spherical.phi));
+                offset.setFromSpherical(spherical);
+                camera.position.copy(controls.target).add(offset);
+                camera.lookAt(controls.target);
+                controls.update();
+                const rect = pad.getBoundingClientRect();
+                const radius = rect.width * 0.34;
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                const vx = event.clientX - cx, vy = event.clientY - cy;
+                const len = Math.hypot(vx, vy) || 1;
+                const scale = Math.min(1, radius / len);
+                dot.style.transform = 'translate(' + (vx * scale) + 'px,' + (vy * scale) + 'px)';
+            });
+            const release = event => {
+                if (activePointer !== event.pointerId) return;
+                activePointer = null;
+                pad.classList.remove('is-active');
+                dot.style.transform = 'translate(0,0)';
+            };
+            ['pointerup','pointercancel','lostpointercapture'].forEach(type => pad.addEventListener(type, release));
+            pad.addEventListener('contextmenu', event => event.preventDefault());
+        }
+
         // =========================================================================
         // 4. INITIALIZE THREE.JS SCENE & LIGHTING
         // =========================================================================
@@ -1700,6 +1798,7 @@
             window.addEventListener('resize', onWindowResize);
             setupPointerInteraction();
             setupNavigationControls();
+            setupCameraOrbitPad();
         }
 
         // =========================================================================
