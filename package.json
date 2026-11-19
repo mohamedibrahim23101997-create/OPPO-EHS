@@ -1,0 +1,9 @@
+{
+  "name": "oppo-ehs-game",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OPPO Egypt EHS training game with Vercel API and Supabase authentication",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.0"
+  }
+}
