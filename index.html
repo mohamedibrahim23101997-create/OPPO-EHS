@@ -58,6 +58,41 @@
         .oppo-gradient {
             background: linear-gradient(135deg, #008b5e 0%, #006644 100%);
         }
+
+        /* Mobile navigation pad for the 3D factory */
+        #mobile-nav-pad {
+            position: fixed; left: 18px; bottom: 22px; z-index: 35;
+            display: none; grid-template-columns: repeat(3, 54px);
+            grid-template-rows: repeat(3, 54px); gap: 5px;
+            padding: 9px; border-radius: 20px;
+            background: rgba(2, 12, 10, .58);
+            border: 1px solid rgba(52, 211, 153, .42);
+            box-shadow: 0 8px 28px rgba(0,0,0,.35);
+            backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            direction: ltr; pointer-events: auto; touch-action: none;
+        }
+        #mobile-nav-pad button {
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid rgba(110, 231, 183, .55);
+            border-radius: 13px; background: rgba(5, 150, 105, .82);
+            color: #fff; font-size: 25px; font-weight: 900;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
+            touch-action: none; -webkit-tap-highlight-color: transparent;
+            user-select: none; -webkit-user-select: none;
+        }
+        #mobile-nav-pad button:active, #mobile-nav-pad button.is-pressed {
+            background: #f59e0b; color: #111827; transform: scale(.96);
+        }
+        #mobile-nav-pad .nav-center {
+            border-radius: 50%; background: rgba(15, 23, 42, .82);
+            color: #a7f3d0; font-size: 12px; border-color: rgba(148,163,184,.35);
+        }
+        @media (pointer: coarse), (max-width: 768px) {
+            #mobile-nav-pad { display: grid; }
+        }
+        @media (max-width: 380px) {
+            #mobile-nav-pad { left: 10px; bottom: 12px; grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(3, 46px); gap: 4px; padding: 7px; }
+        }
     </style>
 </head>
 <body class="text-slate-100">
@@ -1517,6 +1552,84 @@
             return g;
         }
 
+
+        // Mobile D-pad + keyboard navigation (camera movement in the 3D factory)
+        const navInput = { forward: false, backward: false, left: false, right: false };
+        function setNavDirection(direction, pressed, button) {
+            navInput[direction] = pressed;
+            if (button) button.classList.toggle('is-pressed', pressed);
+        }
+        function setupNavigationControls() {
+            const pad = document.createElement('div');
+            pad.id = 'mobile-nav-pad';
+            pad.setAttribute('aria-label', '3D factory movement controls');
+            const buttons = [
+                { direction: 'forward', symbol: '↑', col: 2, row: 1, label: 'Move forward' },
+                { direction: 'left', symbol: '←', col: 1, row: 2, label: 'Move left' },
+                { direction: 'right', symbol: '→', col: 3, row: 2, label: 'Move right' },
+                { direction: 'backward', symbol: '↓', col: 2, row: 3, label: 'Move backward' }
+            ];
+            const center = document.createElement('div');
+            center.className = 'nav-center';
+            center.textContent = 'MOVE';
+            center.style.cssText = 'grid-column:2;grid-row:2;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#a7f3d0;';
+            pad.appendChild(center);
+            buttons.forEach(item => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.textContent = item.symbol;
+                button.setAttribute('aria-label', item.label);
+                button.style.gridColumn = String(item.col);
+                button.style.gridRow = String(item.row);
+                const start = event => { event.preventDefault(); event.stopPropagation(); setNavDirection(item.direction, true, button); };
+                const stop = event => { event.preventDefault(); event.stopPropagation(); setNavDirection(item.direction, false, button); };
+                button.addEventListener('pointerdown', start);
+                ['pointerup', 'pointercancel', 'pointerleave', 'lostpointercapture'].forEach(type => button.addEventListener(type, stop));
+                button.addEventListener('contextmenu', event => event.preventDefault());
+                pad.appendChild(button);
+            });
+            document.body.appendChild(pad);
+            const keyMap = {
+                ArrowUp: 'forward', KeyW: 'forward',
+                ArrowDown: 'backward', KeyS: 'backward',
+                ArrowLeft: 'left', KeyA: 'left',
+                ArrowRight: 'right', KeyD: 'right'
+            };
+            window.addEventListener('keydown', event => {
+                const direction = keyMap[event.code];
+                if (!direction) return;
+                const target = event.target;
+                if (target && (target.isContentEditable || /INPUT|TEXTAREA|SELECT/.test(target.tagName))) return;
+                event.preventDefault();
+                setNavDirection(direction, true);
+            }, { passive: false });
+            window.addEventListener('keyup', event => {
+                const direction = keyMap[event.code];
+                if (direction) setNavDirection(direction, false);
+            });
+            window.addEventListener('blur', () => Object.keys(navInput).forEach(key => setNavDirection(key, false)));
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) Object.keys(navInput).forEach(key => setNavDirection(key, false));
+            });
+        }
+        function updateNavigationControls(deltaTime) {
+            if (!camera || !controls) return;
+            let forwardAmount = (navInput.forward ? 1 : 0) - (navInput.backward ? 1 : 0);
+            let sideAmount = (navInput.right ? 1 : 0) - (navInput.left ? 1 : 0);
+            if (!forwardAmount && !sideAmount) return;
+            const forward = new THREE.Vector3();
+            camera.getWorldDirection(forward);
+            forward.y = 0;
+            if (forward.lengthSq() < 0.0001) return;
+            forward.normalize();
+            const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+            const movement = forward.multiplyScalar(forwardAmount).add(right.multiplyScalar(sideAmount));
+            if (movement.lengthSq() > 1) movement.normalize();
+            movement.multiplyScalar(14 * deltaTime);
+            camera.position.add(movement);
+            controls.target.add(movement);
+        }
+
         // =========================================================================
         // 4. INITIALIZE THREE.JS SCENE & LIGHTING
         // =========================================================================
@@ -1576,6 +1689,7 @@
             setRoofMode(1);
             window.addEventListener('resize', onWindowResize);
             setupPointerInteraction();
+            setupNavigationControls();
         }
 
         // =========================================================================
@@ -4014,6 +4128,7 @@
             requestAnimationFrame(animate);
             const dt = Math.min(clock.getDelta(), 0.05);
             const elapsed = clock.getElapsedTime();
+            updateNavigationControls(dt);
 
             if (camTransition.active) {
                 camera.position.lerp(camTransition.targetPos, 0.08);
