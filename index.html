@@ -321,8 +321,8 @@
                         <button type="button" data-lang="ar" class="lang-btn px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-600 text-white">عربي</button>
                         <button type="button" data-lang="en" class="lang-btn px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-300">EN</button>
                         <button type="button" data-lang="zh" class="lang-btn px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-800 text-slate-300">中文</button>
-                        <button id="btn-show-rules" title="تسجيل موظف جديد / القواعد" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600/60 text-[10px] font-bold text-amber-300">
-                            👤+
+                        <button id="btn-employee-logout" type="button" title="تسجيل خروج الموظف وحفظ التقدم" class="px-2.5 py-1 rounded-lg bg-rose-700 hover:bg-rose-600 border border-rose-400/50 text-[10px] font-extrabold text-white">
+                            خروج الموظف
                         </button>
                     </div>
                 </div>
@@ -662,6 +662,7 @@
                                     <th class="py-2.5 px-2.5">الرقم الوظيفي</th>
                                     <th class="py-2.5 px-2.5">الإدارة</th>
                                     <th class="py-2.5 px-2.5">مرات الدخول</th>
+                                    <th class="py-2.5 px-2.5">إجمالي وقت اللعب</th>
                                     <th class="py-2.5 px-2.5">المخاطر المكتشفة</th>
                                     <th class="py-2.5 px-2.5">النقاط التراكمية</th>
                                     <th class="py-2.5 px-2.5">حالة التأهل والجوائز</th>
@@ -974,15 +975,65 @@
         }
 
         async function saveSessionProgress() {
-            if (!supabaseClient || !activeDbSessionId) return;
-            const { error } = await supabaseClient.from('ehs_game_sessions').update({
-                last_seen_at: new Date().toISOString(),
+            if (!supabaseClient || !activeDbSessionId || !activeUserId) return;
+            const now = new Date().toISOString();
+            const foundIds = Array.from(appState.foundHazards.keys()).filter(id => !String(id).startsWith('legacy-'));
+            const sessionUpdate = await supabaseClient.from('ehs_game_sessions').update({
+                last_seen_at: now,
                 current_zone: appState.currentZoneLabel,
                 hazards_found: appState.foundHazards.size,
                 score: appState.score,
                 accuracy: computeAccuracy()
             }).eq('id', activeDbSessionId);
-            if (error) console.warn('Session sync:', error.message);
+            if (sessionUpdate.error) console.warn('Session sync:', sessionUpdate.error.message);
+            const progressUpdate = await supabaseClient.from('ehs_game_progress').upsert({
+                user_id: activeUserId,
+                employee_id: appState.user.id,
+                full_name: appState.user.name,
+                department: appState.user.dept,
+                found_hazard_ids: foundIds,
+                checked_asset_ids: Array.from(appState.checkedAssets),
+                score: appState.score,
+                false_alarms: appState.falseAlarms,
+                accuracy: computeAccuracy(),
+                updated_at: now
+            }, { onConflict: 'user_id' });
+            if (progressUpdate.error) console.warn('Progress sync:', progressUpdate.error.message);
+        }
+
+        async function restoreEmployeeProgress(userId) {
+            const db = requireBackend();
+            const [{ data: progress, error: progressError }, { data: oldSessions, error: oldError }] = await Promise.all([
+                db.from('ehs_game_progress').select('*').eq('user_id', userId).maybeSingle(),
+                db.from('ehs_game_sessions').select('hazards_found,score').eq('user_id', userId).order('login_at', { ascending: false }).limit(100)
+            ]);
+            if (progressError) throw progressError;
+            if (oldError) throw oldError;
+            appState.foundHazards.clear();
+            appState.checkedAssets.clear();
+            appState.falseAlarms = Number(progress?.false_alarms || 0);
+            const savedIds = Array.isArray(progress?.found_hazard_ids) ? progress.found_hazard_ids : [];
+            const legacyCount = progress ? 0 : Math.max(0, ...((oldSessions || []).map(x => Number(x.hazards_found || 0))));
+            const registryById = new Map(hazardRegistry.map(h => [String(h.id), h]));
+            savedIds.forEach(id => {
+                const hazard = registryById.get(String(id));
+                if (!hazard) return;
+                hazard.found = true;
+                appState.foundHazards.set(hazard.id, {
+                    hazard, chosenCat: hazard.catIndex, chosenSev: 'high',
+                    accurate: true, pts: 0, time: 'Saved progress'
+                });
+            });
+            for (let i = 0; i < legacyCount; i++) {
+                appState.foundHazards.set('legacy-' + (i + 1), {
+                    hazard: { id: 'LEGACY-' + (i + 1), catIndex: -1, zoneName: 'سجل سابق', obs: { en: 'Previously recorded finding' } },
+                    chosenCat: -1, chosenSev: 'high', accurate: true, pts: 0, time: 'Previous session'
+                });
+            }
+            (Array.isArray(progress?.checked_asset_ids) ? progress.checked_asset_ids : []).forEach(id => appState.checkedAssets.add(id));
+            appState.score = Number(progress?.score ?? Math.max(0, ...((oldSessions || []).map(x => Number(x.score || 0)))));
+            appState.checkedAssets.forEach(code => { const asset = safetyAssets.find(x => x.code === code); if (asset) asset.verified = true; });
+            hazardRegistry.forEach(h => { h.found = appState.foundHazards.has(h.id); });
         }
 
         async function loadSupervisorData() {
@@ -1000,8 +1051,12 @@
                 isOnline:x.status === 'online' && (Date.now()-new Date(x.last_seen_at).getTime()<90000)
             })));
             const byId = new Map();
-            (sessions || []).forEach(x => { const v=byId.get(x.employee_id)||{id:x.employee_id,name:x.full_name,dept:x.department,loginCount:0,found:0,score:0,accuracy:0}; v.loginCount++; v.found=Math.max(v.found,x.hazards_found||0); v.score=Math.max(v.score,x.score||0); v.accuracy=Math.max(v.accuracy,x.accuracy||0); byId.set(x.employee_id,v); });
-            participants.splice(0,participants.length,...Array.from(byId.values()).sort((a,b)=>b.found-a.found||b.score-a.score));
+            (sessions || []).forEach(x => { const v=byId.get(x.employee_id)||{id:x.employee_id,name:x.full_name,dept:x.department,loginCount:0,found:0,score:0,accuracy:0,totalDurationSec:0}; v.loginCount++; v.found=Math.max(v.found,x.hazards_found||0); v.score=Math.max(v.score,x.score||0); v.accuracy=Math.max(v.accuracy,x.accuracy||0); byId.set(x.employee_id,v); });
+            (sessions || []).forEach(x => {
+                const p = byId.get(x.employee_id);
+                if (p) p.totalDurationSec += Math.max(0, Math.floor((new Date(x.logout_at || x.last_seen_at || x.login_at).getTime() - new Date(x.login_at).getTime()) / 1000));
+            });
+            participants.splice(0,participants.length,...Array.from(byId.values()).sort((a,b)=>b.score-a.score||b.found-a.found||b.accuracy-a.accuracy));
             document.getElementById('kpi-val-registered').textContent = (employees||[]).length;
             document.getElementById('kpi-val-online').textContent = loginSessions.filter(x=>x.isOnline).length;
             document.getElementById('kpi-val-sessions').textContent = loginSessions.length;
@@ -1104,6 +1159,8 @@
         const loginSessions = [];
         const participants = [];
         const supervisorBeacons = [];
+        let activeDbSessionId = null;
+        let activeUserId = null;
 
         function formatDuration(sec) {
             const s = Math.max(0, Math.floor(sec));
@@ -1120,12 +1177,12 @@
             return Math.round((exactCount / totalAttempts) * 100);
         }
 
-        function computePrizes(foundCount) {
-            if (foundCount >= 18) return ['Earphones', 'Certificate of Appreciation', 'Notebook', 'ID Card'];
-            if (foundCount >= 12) return ['Certificate of Appreciation', 'Notebook', 'ID Card'];
-            if (foundCount >= 6) return ['Notebook', 'ID Card'];
-            if (foundCount >= 3) return ['ID Card (مؤهل للجوائز)'];
-            return [`غير مؤهل بعد (${foundCount}/3)`];
+        function prizeForRank(rank) {
+            if (rank === 1) return 'المركز الأول — سماعة لاسلكية';
+            if (rank === 2) return 'المركز الثاني — مج حراري';
+            if (rank === 3) return 'المركز الثالث — كاب OPPO';
+            if (rank >= 4 && rank <= 10) return 'جائزة تشجيعية — ميدالية';
+            return 'شهادة مشاركة إلكترونية';
         }
 
         function recordNewEmployeeSession(id, name, dept) {
@@ -1139,11 +1196,6 @@
 
             appState.activeSessionId = sessionId;
             appState.sessionStartMs = Date.now();
-            appState.foundHazards.clear();
-            appState.falseAlarms = 0;
-            appState.score = 0;
-
-            hazardRegistry.forEach(h => { h.found = false; });
 
             loginSessions.unshift({
                 sessionId,
@@ -1153,8 +1205,8 @@
                 loginTimeStr: dateStr,
                 startMs: appState.sessionStartMs,
                 durationSec: 0,
-                found: 0,
-                score: 0,
+                found: appState.foundHazards.size,
+                score: appState.score,
                 currentZone: appState.currentZoneLabel,
                 isOnline: true
             });
@@ -3548,8 +3600,8 @@
             const rank = participants.findIndex(p => p.id === appState.user.id) + 1;
             document.getElementById('stat-rank').textContent = rank > 0 ? `#${rank}` : '#--';
 
-            const prizes = computePrizes(foundCount);
-            document.getElementById('stat-prize').textContent = prizes[0];
+            const prizes = prizeForRank(rank);
+            document.getElementById('stat-prize').textContent = prizes;
 
             const coveredCats = new Set();
             appState.foundHazards.forEach(item => coveredCats.add(item.hazard.catIndex));
@@ -3815,8 +3867,8 @@
             } else {
                 participants.forEach((p, idx) => {
                     const isMe = p.id === appState.user.id;
-                    const qualified = p.found >= 3;
-                    const prizes = computePrizes(p.found);
+                    const qualified = idx < 3;
+                    const prizes = prizeForRank(idx + 1);
                     const tr = document.createElement('tr');
                     tr.className = isMe ? 'bg-emerald-950/60 font-bold text-white' : 'text-slate-300';
                     tr.innerHTML = `
@@ -3829,7 +3881,16 @@
                         <td class="py-2.5 px-2.5 font-extrabold text-amber-300">${p.score}</td>
                         <td class="py-2.5 px-2.5">
                             <div class="flex flex-wrap justify-center gap-1">
-                                ${prizes.map(pr => `<span class="px-2 py-0.5 rounded-full ${qualified ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-200' : 'bg-slate-800 border-slate-700 text-slate-400'} border text-[10px] font-bold">${pr}</span>`).join('')}
+                                <span class="px-2 py-0.5 rounded-full ${qualified ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-200' : 'bg-slate-800 border-slate-700 text-slate-300'}">${prizes}</span>
+                                ${p.totalDurationSec !== undefined ? `<span class="text-slate-400">${formatDuration(p.totalDurationSec)}</span>` : '' }
+                            </div>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            constt-slate-400'} border text-[10px] font-bold">${pr}</span>`).join('')}
                             </div>
                         </td>
                     `;
@@ -4032,10 +4093,13 @@
                     document.getElementById('emp-dept').innerHTML=`<option value="${profile.department}">${profile.department}</option>`;
                     appState.user={id:profile.employee_id,name:profile.full_name,dept:profile.department};
                     appState.loggedIn=true;
+                    activeUserId=authData.user.id;
+                    await restoreEmployeeProgress(authData.user.id);
                     recordNewEmployeeSession(profile.employee_id,profile.full_name,profile.department);
-                    const {data:session,error:sessionError}=await db.from('ehs_game_sessions').insert({user_id:authData.user.id,employee_id:profile.employee_id,full_name:profile.full_name,department:profile.department,status:'online',current_zone:appState.currentZoneLabel,hazards_found:0,score:0,accuracy:100}).select('id').single();
+                    const {data:session,error:sessionError}=await db.from('ehs_game_sessions').insert({user_id:authData.user.id,employee_id:profile.employee_id,full_name:profile.full_name,department:profile.department,status:'online',current_zone:appState.currentZoneLabel,hazards_found:appState.foundHazards.size,score:appState.score,accuracy:computeAccuracy()}).select('id').single();
                     if(sessionError) throw sessionError;
                     activeDbSessionId=session.id;
+                    await saveSessionProgress();
                     document.getElementById('hud-inspector-badge').textContent=`ID: ${profile.employee_id} • ${profile.full_name} (${profile.department})`;
                     document.getElementById('login-modal').classList.add('hidden');
                     document.getElementById('hud-root').classList.remove('hidden');
@@ -4142,6 +4206,39 @@
             document.getElementById('btn-close-env').addEventListener('click', () => document.getElementById('env-modal').classList.add('hidden'));
             document.getElementById('btn-emergency-sim').addEventListener('click', toggleEmergencyDrill);
             document.getElementById('btn-leaderboard').addEventListener('click', renderLeaderboardModal);
+            document.getElementById('btn-employee-logout').addEventListener('click', async () => {
+                if (!appState.loggedIn || appState.supervisorMode) return;
+                const btn = document.getElementById('btn-employee-logout');
+                btn.disabled = true;
+                try {
+                    await saveSessionProgress();
+                    if (activeDbSessionId) {
+                        const now = new Date().toISOString();
+                        const { error } = await requireBackend().from('ehs_game_sessions').update({
+                            status: 'offline', logout_at: now, last_seen_at: now,
+                            current_zone: appState.currentZoneLabel,
+                            hazards_found: appState.foundHazards.size, score: appState.score,
+                            accuracy: computeAccuracy()
+                        }).eq('id', activeDbSessionId);
+                        if (error) throw error;
+                    }
+                    await requireBackend().auth.signOut();
+                    appState.loggedIn = false;
+                    appState.supervisorMode = false;
+                    appState.user = { id: '', name: '', dept: 'EHS' };
+                    appState.sessionStartMs = null;
+                    appState.activeSessionId = null;
+                    activeDbSessionId = null;
+                    activeUserId = null;
+                    document.getElementById('hud-root').classList.add('hidden');
+                    document.getElementById('login-modal').classList.remove('hidden');
+                    document.getElementById('emp-password').value = '';
+                    document.getElementById('emp-id').value = '';
+                    showToast('تم تسجيل الخروج وحفظ النقاط والمخاطر المرصودة بنجاح.', 'success');
+                } catch (error) {
+                    showToast('تعذر إكمال تسجيل الخروج: ' + (error.message || error), 'error');
+                } finally { btn.disabled = false; }
+            });
             document.getElementById('btn-close-lb').addEventListener('click', () => document.getElementById('leaderboard-modal').classList.add('hidden'));
             document.getElementById('btn-import-employees').addEventListener('click', async () => { try { await importEmployeeWorkbook(); } catch(ex) { document.getElementById('employee-import-status').textContent=ex.message||'حدث خطأ أثناء الاستيراد.'; } });
             document.getElementById('btn-download-employee-passwords').addEventListener('click', downloadEmployeeCredentials);
@@ -4321,7 +4418,8 @@
             setInterval(() => { if(appState.loggedIn && !appState.supervisorMode) saveSessionProgress(); }, 20000);
             window.addEventListener('pagehide', () => {
                 if(supabaseClient && activeDbSessionId) {
-                    const payload={status:'offline',logout_at:new Date().toISOString(),last_seen_at:new Date().toISOString()};
+                    const now = new Date().toISOString();
+                    const payload={status:'offline',logout_at:now,last_seen_at:now,hazards_found:appState.foundHazards.size,score:appState.score,current_zone:appState.currentZoneLabel,accuracy:computeAccuracy()};
                     supabaseClient.from('ehs_game_sessions').update(payload).eq('id',activeDbSessionId);
                 }
             });
