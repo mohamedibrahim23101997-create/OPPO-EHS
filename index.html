@@ -615,7 +615,7 @@
                 <div class="flex flex-wrap items-center gap-2">
                     <div class="flex-1 min-w-[180px]">
                         <div class="text-xs font-extrabold text-amber-300">استيراد الموظفين وإصدار كلمات مرور فردية</div>
-                        <div class="text-[10px] text-slate-400 mt-1">Excel: employee_id / full_name / department أو العناوين العربية. الموظف الموجود لا يتم تغيير كلمة مروره.</div>
+                        <div class="text-[10px] text-slate-400 mt-1">Excel: employee_id / full_name / department / temporary_password. يتم تعيين كلمة المرور الموجودة بالملف للحسابات الجديدة والحالية، مع استثناء حساب المشرف EG800218.</div>
                     </div>
                     <input id="employee-excel-file" type="file" accept=".xlsx,.xls,.csv" class="max-w-[220px] text-[10px] text-slate-300" />
                     <button id="btn-import-employees" type="button" class="px-3 py-2 rounded-lg bg-amber-500 text-slate-950 text-xs font-black">استيراد وإصدار كلمات المرور</button>
@@ -948,7 +948,7 @@
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Employee Passwords');
             XLSX.writeFile(wb, 'OPPO_EHS_Employee_Temporary_Passwords.xlsx');
-            document.getElementById('employee-import-status').textContent='تم تجهيز ملف كلمات المرور. احفظه في مكان آمن؛ لن يتم تغيير كلمات مرور الحسابات الموجودة.';
+            document.getElementById('employee-import-status').textContent='تم تنزيل ملف كلمات المرور التي تم تعيينها بنجاح فقط. احفظه في مكان آمن ووزّع كل كلمة مرور على الموظف المعني فقط.';
         }
 
         async function importEmployeeWorkbook() {
@@ -956,7 +956,11 @@
             const file=document.getElementById('employee-excel-file').files[0];
             const status=document.getElementById('employee-import-status');
             if(!file){status.textContent='اختر ملف Excel أولاً.';return;}
-            status.textContent='جارٍ قراءة الملف والتحقق من البيانات…';
+            pendingEmployeeCredentials = [];
+            const downloadBtn=document.getElementById('btn-download-employee-passwords');
+            downloadBtn.classList.add('hidden');
+            downloadBtn.disabled=true;
+            status.textContent='جارٍ قراءة الملف والتحقق من بيانات الموظفين وكلمات المرور…';
             const buf=await file.arrayBuffer();
             const wb=XLSX.read(buf,{type:'array'});
             const ws=wb.Sheets['Employees'] || wb.Sheets[wb.SheetNames[0]];
@@ -966,8 +970,9 @@
             const employees=rows.map(r=>({
                 employee_id:String(pick(r,['employeeid','id','الرقمالوظيفي','الكود'])).trim(),
                 full_name:String(pick(r,['fullname','name','اسمالموظف','الاسم'])).trim(),
-                department:String(pick(r,['department','dept','القسم','الادارة'])).trim()
-            })).filter(x=>x.employee_id||x.full_name||x.department);
+                department:String(pick(r,['department','dept','القسم','الادارة'])).trim(),
+                temporary_password:String(pick(r,['temporarypassword','password','كلمةالمرور','كلمةالمرورالمؤقتة'])).trim()
+            })).filter(x=>x.employee_id||x.full_name||x.department||x.temporary_password);
             if(!employees.length){status.textContent='لم يتم العثور على بيانات موظفين في الورقة.';return;}
             const {data:{session}}=await db.auth.getSession();
             if(!session?.access_token) throw new Error('انتهت جلسة المشرف. سجّل الدخول مرة أخرى.');
@@ -989,9 +994,12 @@
                 : 'لا توجد كلمات مرور جديدة للتنزيل';
 
             if(pendingEmployeeCredentials.length){
-                status.textContent=`تم إنشاء ${result.created||0} حساب جديد وتحديث ${result.updated||0} حساب موجود. اضغط زر "تحميل ملف كلمات المرور" لإتمام التنزيل.`;
+                status.textContent=`اكتملت المعالجة: إنشاء ${result.created||0} حساب جديد، وتحديث ${result.updated||0} حساب موجود، وتعيين ${result.passwordsSet||0} كلمة مرور. اضغط زر التحميل لتنزيل كلمات المرور التي تم تعيينها بنجاح. ${(result.errors||[]).length ? 'يوجد '+result.errors.length+' صف/صفوف لم تكتمل؛ راجع التفاصيل أدناه.' : ''}`;
             } else {
-                status.textContent=`تمت المعالجة: ${result.created||0} حساب جديد، و${result.updated||0} حساب موجود. لا توجد كلمات مرور جديدة؛ الحسابات الموجودة تحتفظ بكلمات مرورها الحالية.`;
+                status.textContent=`لم يتم تعيين أي كلمات مرور. راجع الأخطاء: ${(result.errors||[]).length}. لم يتم إصدار ملف كلمات مرور فارغ.`;
+            }
+            if((result.errors||[]).length){
+                status.textContent += ' ' + result.errors.slice(0,8).map(e=>`[صف ${e.row} - ${e.employee_id||'بدون رقم'}: ${e.error}]`).join(' | ');
             }
             await loadSupervisorData();
         }
