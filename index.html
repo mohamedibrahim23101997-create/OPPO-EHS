@@ -734,9 +734,9 @@
                 rules: [
                     '1. Inspection Mission: Tour inside factory departments (SMT, Assembly, Batteries, Quality, Electromechanical, Chemical Storage, Maintenance, Warehouses, Packaging & Fire Systems) to discover 52 hidden safety & PPE violations without warning markers.',
                     '2. How to Report: Click any violating equipment or worker without PPE, then select the correct Hazard Category and assess Severity.',
-                    '3. Qualification Rule: Must discover at least 3 valid violations to enter prize distribution.',
-                    '4. Scoring & Ranking: Ranked by valid hazards found, then total score (High = 20 pts, Medium = 15 pts, Low = 8 pts + accuracy bonus), then fastest inspection time.',
-                    '5. Official Prizes: Earphones • Certificate of Appreciation • Notebook • ID Card.'
+                    '3. Qualification: Discover at least 3 unique, valid hazards to qualify for prize consideration. The same hazard cannot be counted twice.',
+                    '4. Scoring & Ranking: High risk = 20 pts, Medium = 15 pts, Low = 8 pts; accurate category selection earns a +10 pt bonus and a false alarm deducts 15 pts. Ranking is by highest total score, then valid hazards, accuracy, and shortest total play time.',
+                    '5. Prize tiers: 1st: Earphone + Certificate + Notebook + ID Card; 2nd: Certificate + Notebook + ID Card; 3rd: Certificate + Notebook; ranks 4–10: Certificate + ID Card; remaining qualified participants: ID Card.'
                 ],
                 labelId: 'Employee ID (Mandatory)',
                 labelName: 'Employee Full Name (Mandatory)',
@@ -809,9 +809,9 @@
                 rules: [
                     '1. مهمة التفتيش: تجوّل داخل أقسام المصنع الشاملة (SMT، التجميع، البطاريات، الجودة، الكهروميكانيك، الغرفة الكيميائية، الصيانة، المخازن، التغليف، وأنظمة الحريق) لاكتشاف 52 مخالفة سلامة ومهمات وقاية مخفية بدون أي علامات كاشفة.',
                     '2. كيفية الإبلاغ: انقر على أي معدة مخالفة أو عامل غير ملتزم بمهمات الوقاية، ثم اختر فئة الخطر الصحيحة وقيّم درجة الخطورة.',
-                    '3. شرط التأهل: يجب اكتشاف 3 مخالفات صحيحة على الأقل لدخول فرز وتوزيع الجوائز.',
-                    '4. نظام النقاط والترتيب: يُرتب الفائزون حسب أعلى عدد مخالفات مكتشفة، ثم مجموع النقاط (عالي = 20 نقطة، متوسط = 15 نقطة، منخفض = 8 نقاط + مكافأة دقة التصنيف)، ثم أسرع زمن للتفتيش لكسر التعادل.',
-                    '5. الجوائز الرسمية للفائزين: سماعات أذن (Earphones) • شهادة تقدير (Certificate of Appreciation) • دفتر ملاحظات (Notebook) • بطاقة هوية (ID Card).'
+                    '3. شرط التأهل: يجب اكتشاف 3 مخاطر صحيحة وفريدة على الأقل للتأهل للجوائز، ولا يُحتسب الخطر نفسه أكثر من مرة.',
+                    '4. نظام النقاط والترتيب: الخطر العالي 20 نقطة، المتوسط 15، والمنخفض 8، مع 10 نقاط إضافية للتصنيف الصحيح وخصم 15 نقطة للبلاغ الخاطئ. يكون الترتيب حسب أعلى مجموع نقاط، ثم عدد المخاطر الصحيحة، ثم دقة التصنيف، ثم أقل وقت لعب إجمالي لكسر التعادل.',
+                    '5. توزيع الجوائز: الأول: Earphone + شهادة تقدير + Notebook + ID Card؛ الثاني: شهادة + Notebook + ID Card؛ الثالث: شهادة + Notebook؛ المراكز 4–10: شهادة + ID Card؛ باقي المتأهلين: ID Card.',
                 ],
                 labelId: 'الرقم الوظيفي (ID)',
                 labelName: 'اسم الموظف الكامل',
@@ -884,9 +884,9 @@
                 rules: [
                     '1. 巡检任务：巡视工厂各部门（SMT、组装、电池、质量、机电、化学品库、维护、仓储、包装及消防系统），排查52处无提示标记的隐藏安全与PPE违规隐患。',
                     '2. 报告方式：点击疑似违规的设备或未佩戴PPE的员工，选择正确的隐患类别并评估风险等级。',
-                    '3. 入围条件：至少准确发现 3 处安全隐患方可参与奖品分配。',
-                    '4. 计分与排名：按发现隐患数量排序，其次按总分（高风险=20分，中风险=15分，低风险=8分+分类准确率奖励）及最快巡检用时。',
-                    '5. 官方奖品：OPPO耳机 (Earphones) • 荣誉证书 (Certificate of Appreciation) • 笔记本 (Notebook) • 专属ID卡 (ID Card)。'
+                    '3. 获奖资格：至少发现3项不同且有效的隐患；同一隐患不得重复计数。',
+                    '4. 计分与排名：高风险20分、中风险15分、低风险8分；分类正确加10分，误报扣15分。按总分、有效隐患数、准确率及总游戏时间由短到长依次排名。',
+                    '5. 奖品：第1名耳机+证书+笔记本+ID卡；第2名证书+笔记本+ID卡；第3名证书+笔记本；第4至10名证书+ID卡；其余符合资格者获得ID卡。',
                 ],
                 labelId: '员工工号 (ID)',
                 labelName: '员工完整姓名',
@@ -1058,7 +1058,7 @@
                 const p = byId.get(x.employee_id);
                 if (p) p.totalDurationSec += Math.max(0, Math.floor((new Date(x.logout_at || x.last_seen_at || x.login_at).getTime() - new Date(x.login_at).getTime()) / 1000));
             });
-            participants.splice(0,participants.length,...Array.from(byId.values()).sort((a,b)=>b.score-a.score||b.found-a.found||b.accuracy-a.accuracy));
+            participants.splice(0,participants.length,...Array.from(byId.values()).sort((a,b)=>b.score-a.score||b.found-a.found||b.accuracy-a.accuracy||(a.totalDurationSec||0)-(b.totalDurationSec||0)));
             document.getElementById('kpi-val-registered').textContent = (employees||[]).length;
             document.getElementById('kpi-val-online').textContent = loginSessions.filter(x=>x.isOnline).length;
             document.getElementById('kpi-val-sessions').textContent = loginSessions.length;
@@ -1178,11 +1178,12 @@
         }
 
         function prizeForRank(rank) {
-            if (rank === 1) return 'المركز الأول — سماعة لاسلكية';
-            if (rank === 2) return 'المركز الثاني — مج حراري';
-            if (rank === 3) return 'المركز الثالث — كاب OPPO';
-            if (rank >= 4 && rank <= 10) return 'جائزة تشجيعية — ميدالية';
-            return 'شهادة مشاركة إلكترونية';
+            if (rank === 1) return 'Earphone + شهادة تقدير + Notebook + ID Card';
+            if (rank === 2) return 'شهادة تقدير + Notebook + ID Card';
+            if (rank === 3) return 'شهادة تقدير + Notebook';
+            if (rank >= 4 && rank <= 10) return 'شهادة تقدير + ID Card';
+            if (rank > 10) return 'ID Card';
+            return 'غير مؤهل بعد';
         }
 
         function recordNewEmployeeSession(id, name, dept) {
