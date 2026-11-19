@@ -621,6 +621,8 @@
                     <button id="btn-import-employees" type="button" class="px-3 py-2 rounded-lg bg-amber-500 text-slate-950 text-xs font-black">استيراد وإصدار كلمات المرور</button>
                 </div>
                 <div id="employee-import-status" class="text-xs text-slate-300 mt-2"></div>
+                <button id="btn-download-employee-passwords" type="button" class="hidden mt-2 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black">📥 تحميل ملف كلمات المرور (Excel)</button>
+                <div class="text-[10px] text-amber-200/80 mt-1">احتفظ بالملف في مكان آمن ووزّع كلمة المرور على الموظف المعني فقط.</div>
             </div>
 
             <!-- Modal Footer Buttons -->
@@ -930,6 +932,25 @@
             document.getElementById('kpi-val-sessions').textContent = loginSessions.length;
         }
 
+        let pendingEmployeeCredentials = [];
+
+        function downloadEmployeeCredentials() {
+            if (!pendingEmployeeCredentials.length) {
+                document.getElementById('employee-import-status').textContent='لا توجد كلمات مرور جديدة متاحة للتنزيل. الحسابات الموجودة لم يتم تغيير كلمات مرورها.';
+                return;
+            }
+            const ws = XLSX.utils.json_to_sheet(pendingEmployeeCredentials.map(x => ({
+                'Employee ID': x.employee_id,
+                'Full Name': x.full_name,
+                'Department': x.department,
+                'Temporary Password': x.temporary_password
+            })));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Employee Passwords');
+            XLSX.writeFile(wb, 'OPPO_EHS_Employee_Temporary_Passwords.xlsx');
+            document.getElementById('employee-import-status').textContent='تم تجهيز ملف كلمات المرور. احفظه في مكان آمن؛ لن يتم تغيير كلمات مرور الحسابات الموجودة.';
+        }
+
         async function importEmployeeWorkbook() {
             const db=requireBackend();
             const file=document.getElementById('employee-excel-file').files[0];
@@ -953,11 +974,14 @@
             const response=await fetch('/api/import-employees',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${session.access_token}`,'apikey':SUPABASE_ANON_KEY},body:JSON.stringify({employees})});
             const result=await response.json();
             if(!response.ok) throw new Error(result.error||'فشل استيراد الموظفين');
-            if(result.credentials?.length){
-                const csv='employee_id,full_name,department,temporary_password\n'+result.credentials.map(x=>[x.employee_id,x.full_name,x.department,x.temporary_password].map(v=>'"'+String(v??'').replaceAll('"','""')+'"').join(',')).join('\n');
-                const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='OPPO_EHS_Employee_Temporary_Passwords.csv';a.click();URL.revokeObjectURL(a.href);
+            pendingEmployeeCredentials = Array.isArray(result.credentials) ? result.credentials : [];
+            const downloadBtn=document.getElementById('btn-download-employee-passwords');
+            downloadBtn.classList.toggle('hidden', pendingEmployeeCredentials.length===0);
+            if(pendingEmployeeCredentials.length){
+                status.textContent=`تم إنشاء ${result.created||0} حساب جديد وتحديث ${result.updated||0} حساب موجود. اضغط زر "تحميل ملف كلمات المرور" لإتمام التنزيل.`;
+            } else {
+                status.textContent=`تمت المعالجة: ${result.created||0} حساب جديد، و${result.updated||0} حساب موجود. لم يتم إصدار كلمات مرور جديدة؛ الحسابات الموجودة تحتفظ بكلمات مرورها الحالية.`;
             }
-            status.textContent=`تمت معالجة ${result.created||0} حساب جديد، وتحديث ${result.updated||0} حساب موجود. تم تنزيل ملف كلمات المرور للحسابات الجديدة فقط.`;
             await loadSupervisorData();
         }
 
@@ -3877,6 +3901,7 @@
             document.getElementById('btn-leaderboard').addEventListener('click', renderLeaderboardModal);
             document.getElementById('btn-close-lb').addEventListener('click', () => document.getElementById('leaderboard-modal').classList.add('hidden'));
             document.getElementById('btn-import-employees').addEventListener('click', async () => { try { await importEmployeeWorkbook(); } catch(ex) { document.getElementById('employee-import-status').textContent=ex.message||'حدث خطأ أثناء الاستيراد.'; } });
+            document.getElementById('btn-download-employee-passwords').addEventListener('click', downloadEmployeeCredentials);
             document.getElementById('btn-export-excel').addEventListener('click', exportExcelSpreadsheet);
             document.getElementById('btn-lb-export').addEventListener('click', exportExcelSpreadsheet);
 
