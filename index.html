@@ -980,7 +980,8 @@
             const result=await response.json();
             if(!response.ok) throw new Error(result.error||'فشل استيراد الموظفين');
             pendingEmployeeCredentials = Array.isArray(result.credentials) ? result.credentials : [];
-            const downloadBtn=document.getElementById('btn-download-employee-passwords');
+            // Reuse the button reference declared at the start of this import function.
+            
 
             // أظهر عنصر التحميل بعد كل عملية استيراد ناجحة، حتى لو لم تُنشأ كلمات مرور جديدة.
             // لا تسمح بالتنزيل إلا عندما تُرجع الخادم كلمات مرور مؤقتة فعلية.
