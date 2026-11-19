@@ -4075,21 +4075,40 @@
             renderer.render(scene, camera);
         }
 
-        window.onload = function () {
-            initThreeScene();
-            applyLanguage('ar');
-            // Keep a remote heartbeat while the employee is playing; mark the session closed on exit.
-        setInterval(() => { if(appState.loggedIn && !appState.supervisorMode) saveSessionProgress(); }, 20000);
-        window.addEventListener('pagehide', () => {
-            if(supabaseClient && activeDbSessionId) {
-                const payload={status:'offline',logout_at:new Date().toISOString(),last_seen_at:new Date().toISOString()};
-                supabaseClient.from('ehs_game_sessions').update(payload).eq('id',activeDbSessionId);
+        window.addEventListener('load', function () {
+            // Bind authentication and other UI controls before initializing the 3D scene.
+            // A WebGL/Three.js failure must never disable employee or supervisor login.
+            try {
+                bindAllUIEvents();
+            } catch (uiError) {
+                console.error('Failed to initialize OPPO EHS interface:', uiError);
+                const loginError = document.getElementById('login-error');
+                if (loginError) {
+                    loginError.textContent = 'حدث خطأ أثناء تشغيل واجهة الدخول. يرجى تحديث الصفحة والمحاولة مرة أخرى.';
+                    loginError.classList.remove('hidden');
+                }
             }
-        });
 
-        if(!supabaseClient) console.warn('Supabase is not configured. Configure SUPABASE_URL and SUPABASE_ANON_KEY before deployment.');
-        bindAllUIEvents();
-            animate();
+            applyLanguage('ar');
+            if (!supabaseClient) console.warn('Supabase is not configured. Configure SUPABASE_URL and SUPABASE_ANON_KEY before deployment.');
+
+            // Keep a remote heartbeat while the employee is playing; mark the session closed on exit.
+            setInterval(() => { if(appState.loggedIn && !appState.supervisorMode) saveSessionProgress(); }, 20000);
+            window.addEventListener('pagehide', () => {
+                if(supabaseClient && activeDbSessionId) {
+                    const payload={status:'offline',logout_at:new Date().toISOString(),last_seen_at:new Date().toISOString()};
+                    supabaseClient.from('ehs_game_sessions').update(payload).eq('id',activeDbSessionId);
+                }
+            });
+
+            // Run the 3D factory independently from authentication.
+            try {
+                initThreeScene();
+                animate();
+            } catch (sceneError) {
+                console.error('3D factory initialization failed; login remains available:', sceneError);
+                showToast('تعذر تشغيل المشهد ثلاثي الأبعاد، لكن يمكنك تسجيل الدخول والمحاولة مرة أخرى.', 'error');
+            }
 
             setInterval(() => {
                 if (appState.loggedIn && appState.sessionStartMs) {
@@ -4103,7 +4122,7 @@
                     }
                 }
             }, 1000);
-        };
+        });
     })();
     </script>
 </body>
