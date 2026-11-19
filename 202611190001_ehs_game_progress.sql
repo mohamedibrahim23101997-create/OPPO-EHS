@@ -7,6 +7,7 @@ create table if not exists public.ehs_game_progress (
   full_name text not null,
   department text not null,
   found_hazard_ids jsonb not null default '[]'::jsonb,
+  legacy_hazards_count integer not null default 0 check (legacy_hazards_count >= 0),
   checked_asset_ids jsonb not null default '[]'::jsonb,
   score integer not null default 0 check (score >= 0),
   false_alarms integer not null default 0 check (false_alarms >= 0),
