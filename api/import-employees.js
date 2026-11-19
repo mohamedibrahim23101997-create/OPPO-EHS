@@ -156,10 +156,7 @@ module.exports = async function handler(req, res) {
 
       // Reset existing users, or confirm the spreadsheet password for newly-created users.
       if (!createdNow) {
-        const { error: passwordError } = await admin.auth.admin.updateUserById(userId, {
-          password,
-          user_metadata: { employee_id, full_name, department, account_type: 'ehs_employee' }
-        });
+        const { error: passwordError } = await admin.auth.admin.updateUserById(userId, { password });
         if (passwordError) {
           errors.push({ row: i + 2, employee_id, error: 'تم حفظ بيانات الموظف لكن تعذر تعيين كلمة المرور: ' + passwordError.message });
           continue;
