@@ -1161,7 +1161,6 @@
         const loginSessions = [];
         const participants = [];
         const supervisorBeacons = [];
-        let activeDbSessionId = null;
 
         function formatDuration(sec) {
             const s = Math.max(0, Math.floor(sec));
@@ -3885,7 +3884,6 @@
                         <td class="py-2.5 px-2.5">
                             <div class="flex flex-wrap justify-center gap-1">
                                 <span class="px-2 py-0.5 rounded-full ${qualified ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-200' : 'bg-slate-800 border-slate-700 text-slate-300'}">${prizes}</span>
-                                ${p.totalDurationSec !== undefined ? `<span class="text-slate-400">${formatDuration(p.totalDurationSec)}</span>` : '' }
                             </div>
                         </td>
                     `;
