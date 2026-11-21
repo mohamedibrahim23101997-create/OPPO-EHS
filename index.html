@@ -699,6 +699,17 @@
                 <div id="employee-import-status" class="text-xs text-slate-300 mt-2"></div>
                 <button id="btn-download-employee-passwords" type="button" class="hidden mt-2 px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black">📥 تحميل ملف كلمات المرور (Excel)</button>
                 <div class="text-[10px] text-amber-200/80 mt-1">احتفظ بالملف في مكان آمن ووزّع كلمة المرور على الموظف المعني فقط.</div>
+                <div class="mt-3 rounded-xl border border-emerald-400/35 bg-emerald-950/25 p-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                            <div class="text-sm font-black text-emerald-300">🤖 AI Training Center — تدريب تلقائي لمدة 60 ثانية</div>
+                            <div class="text-[10px] text-slate-300 mt-1">عرض توضيحي آمن: لا ينشئ حساب موظف ولا يغيّر النتائج أو سجلات المسابقة.</div>
+                        </div>
+                        <span class="rounded-full bg-emerald-500/15 border border-emerald-400/30 px-2 py-1 text-[10px] font-bold text-emerald-200">60 SEC • DEMO ONLY</span>
+                    </div>
+                    <button id="btn-ai-training-start" type="button" class="mt-3 w-full py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black shadow-lg transition">▶ بدء اللعب بواسطة الذكاء الاصطناعي وتسجيل التدريب</button>
+                    <div id="ai-training-status" class="text-[10px] text-slate-300 mt-2" aria-live="polite">سيُطلب منك اختيار مشاركة نافذة المتصفح لتسجيل الفيديو. اترك صلاحية المشاركة حتى انتهاء التدريب.</div>
+                </div>
             </div>
 
             <!-- Modal Footer Buttons -->
@@ -712,6 +723,30 @@
                     <span>تصدير ملف Excel للمشاركين وسجل الدخول (.xls)</span>
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- AI TRAINING WALKTHROUGH OVERLAY -->
+    <div id="ai-training-overlay" class="hidden fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3">
+        <div class="w-full max-w-2xl rounded-3xl border border-emerald-400/45 bg-[#071711]/95 shadow-2xl p-5 sm:p-7">
+            <div class="flex items-center justify-between gap-3">
+                <div>
+                    <div class="text-[10px] tracking-[.22em] font-black text-emerald-300">OPPO EGYPT MANUFACTURING</div>
+                    <h2 class="text-xl sm:text-2xl font-black text-white mt-1">AI-Powered EHS Inspection Training</h2>
+                </div>
+                <div class="text-right shrink-0"><div id="ai-training-clock" class="text-2xl font-black font-mono text-emerald-300">00:00</div><div class="text-[9px] text-slate-400">60 SECOND DEMO</div></div>
+            </div>
+            <div class="mt-5 h-2 rounded-full bg-slate-800 overflow-hidden"><div id="ai-training-progress" class="h-full w-0 bg-emerald-400 transition-all duration-300"></div></div>
+            <div class="mt-5 rounded-2xl border border-slate-700 bg-slate-900/80 p-4 sm:p-5 min-h-[145px]">
+                <div id="ai-training-step-label" class="text-[10px] uppercase tracking-widest text-emerald-300 font-black">GETTING READY</div>
+                <div id="ai-training-step-title" class="text-lg sm:text-xl text-white font-black mt-2">Preparing the virtual factory</div>
+                <p id="ai-training-step-description" class="text-sm text-slate-300 leading-relaxed mt-2">The AI guide will demonstrate the employee journey and supervisor dashboard.</p>
+            </div>
+            <div class="mt-4 flex flex-wrap items-center justify-between gap-2">
+                <div class="text-[10px] text-slate-400">DEMO MODE • REAL EMPLOYEE RECORDS ARE NOT MODIFIED</div>
+                <button id="btn-ai-training-stop" type="button" class="px-4 py-2 rounded-xl bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold">إيقاف التدريب</button>
+            </div>
+            <div id="ai-training-recording-note" class="text-[10px] text-amber-200 mt-3">سيتم تنزيل التسجيل تلقائياً عند اكتمال الجولة إذا وافقت على مشاركة الشاشة.</div>
         </div>
     </div>
 
@@ -4067,6 +4102,194 @@
             });
         }
 
+        // =========================================================================
+        // AI-POWERED 60-SECOND TRAINING — SAFE, READ-ONLY DEMONSTRATION
+        // =========================================================================
+        const aiTraining = { running: false, stopRequested: false, recorder: null, stream: null, chunks: [], startedAt: 0, original: null };
+
+        function aiTrainingText(label, title, description, elapsed) {
+            const clock = document.getElementById('ai-training-clock');
+            const progress = document.getElementById('ai-training-progress');
+            document.getElementById('ai-training-step-label').textContent = label;
+            document.getElementById('ai-training-step-title').textContent = title;
+            document.getElementById('ai-training-step-description').textContent = description;
+            const seconds = Math.min(60, Math.max(0, Math.floor(elapsed)));
+            clock.textContent = '00:' + String(60 - seconds).padStart(2, '0');
+            progress.style.width = (seconds / 60 * 100) + '%';
+        }
+
+        function aiTrainingWait(ms) {
+            return new Promise(resolve => {
+                const started = Date.now();
+                const tick = () => {
+                    if (aiTraining.stopRequested || Date.now() - started >= ms) return resolve();
+                    setTimeout(tick, 100);
+                };
+                tick();
+            });
+        }
+
+        function aiTrainingSetStage(label, title, description, elapsed) {
+            aiTrainingText(label, title, description, elapsed);
+            const note = document.getElementById('ai-training-recording-note');
+            if (note) note.textContent = 'AI TRAINING IN PROGRESS • ' + String(Math.min(60, elapsed)).padStart(2, '0') + ' / 60 SEC';
+        }
+
+        async function aiTrainingStartRecording() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia || typeof MediaRecorder === 'undefined') {
+                throw new Error('تسجيل الشاشة غير مدعوم في هذا المتصفح. يمكنك تشغيل التدريب دون تسجيل.');
+            }
+            const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: false });
+            const videoTrack = stream.getVideoTracks()[0];
+            if (!videoTrack) throw new Error('لم يتم اختيار مصدر فيديو للتسجيل.');
+            const mimeCandidates = ['video/mp4;codecs=h264', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+            const mimeType = mimeCandidates.find(type => MediaRecorder.isTypeSupported(type)) || '';
+            const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+            aiTraining.stream = stream;
+            aiTraining.recorder = recorder;
+            aiTraining.chunks = [];
+            recorder.addEventListener('dataavailable', event => { if (event.data && event.data.size) aiTraining.chunks.push(event.data); });
+            return new Promise((resolve, reject) => {
+                recorder.addEventListener('stop', () => {
+                    const type = recorder.mimeType || mimeType || 'video/webm';
+                    const blob = new Blob(aiTraining.chunks, { type });
+                    stream.getTracks().forEach(track => track.stop());
+                    aiTraining.stream = null;
+                    aiTraining.recorder = null;
+                    if (!blob.size) return reject(new Error('ملف التسجيل فارغ. أعد المحاولة واسمح بمشاركة نافذة المتصفح.'));
+                    const extension = type.toLowerCase().includes('mp4') ? 'mp4' : 'webm';
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = 'OPPO_EHS_AI_Training_60sec.' + extension;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    setTimeout(() => URL.revokeObjectURL(url), 60000);
+                    const status = document.getElementById('ai-training-status');
+                    if (status) status.textContent = 'اكتمل التدريب وتم تنزيل الفيديو بصيغة ' + extension.toUpperCase() + '.';
+                    resolve(extension);
+                }, { once: true });
+                recorder.addEventListener('error', event => reject(event.error || new Error('تعذر تسجيل الفيديو.')), { once: true });
+                recorder.start(1000);
+            });
+        }
+
+        async function runAITrainingDemo() {
+            if (!appState.supervisorMode) {
+                showToast('هذه الخاصية متاحة للمشرف فقط.', 'warning');
+                return;
+            }
+            if (aiTraining.running) return;
+            aiTraining.running = true;
+            aiTraining.stopRequested = false;
+            const overlay = document.getElementById('ai-training-overlay');
+            const status = document.getElementById('ai-training-status');
+            const leaderboard = document.getElementById('leaderboard-modal');
+            aiTraining.original = {
+                camera: camera ? camera.position.clone() : null,
+                target: controls ? controls.target.clone() : null,
+                supervisorXray: appState.supervisorXray,
+                roofMode: appState.roofMode,
+                loginHidden: document.getElementById('login-modal').classList.contains('hidden'),
+                hudHidden: document.getElementById('hud-root').classList.contains('hidden'),
+                leaderboardHidden: leaderboard.classList.contains('hidden')
+            };
+            leaderboard.classList.add('hidden');
+            overlay.classList.remove('hidden');
+            document.getElementById('mobile-nav-pad')?.classList.add('hidden');
+            document.getElementById('camera-orbit-pad')?.classList.add('hidden');
+
+            let recordingPromise = null;
+            try {
+                if (status) status.textContent = 'اختر مشاركة نافذة المتصفح (يفضل This Tab) لالتقاط فيديو التدريب بالكامل.';
+                try {
+                    recordingPromise = await aiTrainingStartRecording();
+                } catch (recordError) {
+                    if (status) status.textContent = 'لم يبدأ تسجيل الشاشة: ' + recordError.message + ' سيستمر التدريب دون فيديو.';
+                }
+
+                const stages = [
+                    { at: 0, duration: 10, label: '01 • EMPLOYEE LOGIN', title: 'Secure employee sign-in', desc: 'The employee opens the challenge, enters their individual Employee ID and password, reviews the rules, and signs in. This walkthrough uses a visual demo only; no test account is authenticated.' },
+                    { at: 10, duration: 10, label: '02 • START THE INSPECTION', title: 'Enter the virtual OPPO factory', desc: 'The employee starts the inspection tour and explores the 3D smartphone manufacturing environment. Use the navigation controls to move and rotate the camera.' },
+                    { at: 20, duration: 15, label: '03 • IDENTIFY & REPORT HAZARDS', title: 'Find a hazard and submit a report', desc: 'Select a visible unsafe condition, choose its EHS category and risk severity, then submit the finding. The demonstration previews the reporting form without saving a score or employee record.' },
+                    { at: 35, duration: 10, label: '04 • SCORE & QUALIFICATION', title: 'Understand scoring and qualification', desc: 'The challenge evaluates valid unique hazards, category accuracy, risk severity and false alarms. Employees need at least three valid unique hazards to qualify.' },
+                    { at: 45, duration: 10, label: '05 • SUPERVISOR LIVE TRACKING', title: 'Monitor employee participation', desc: 'The supervisor dashboard displays employee login activity, current status, departments, session duration and progress. The view uses the live dashboard data without adding a demo participant.' },
+                    { at: 55, duration: 5, label: '06 • QUALIFIERS & REPORTING', title: 'Review qualifiers and export reports', desc: 'Review the cumulative participant ranking and qualification status, then use the existing Excel export for competition reporting. Training complete.' }
+                ];
+                aiTraining.startedAt = Date.now();
+                for (const stage of stages) {
+                    if (aiTraining.stopRequested) break;
+                    const elapsed = stage.at;
+                    aiTrainingSetStage(stage.label, stage.title, stage.desc, elapsed);
+                    if (stage.at === 0) {
+                        document.getElementById('hud-root').classList.add('hidden');
+                        document.getElementById('login-modal').classList.remove('hidden');
+                        document.getElementById('emp-id').value = 'DEMO-EMPLOYEE';
+                        document.getElementById('emp-name').value = 'AI Training Demonstration';
+                        document.getElementById('emp-password').value = '••••••••';
+                        document.getElementById('emp-dept').selectedIndex = 0;
+                        document.getElementById('chk-rules-ack').checked = true;
+                    } else if (stage.at === 10) {
+                        document.getElementById('login-modal').classList.add('hidden');
+                        document.getElementById('hud-root').classList.remove('hidden');
+                        flyToZone('smt');
+                    } else if (stage.at === 20) {
+                        flyToZone('assembly');
+                        appState.supervisorXray = true;
+                        updateSupervisorUIState();
+                        const demoHazard = hazardRegistry.find(h => !h.found);
+                        if (demoHazard) {
+                            appState.pendingHazard = demoHazard;
+                            document.getElementById('rep-zone-badge').textContent = 'DEMO • ' + demoHazard.id + ' • ' + demoHazard.zoneName;
+                            document.getElementById('rep-obs-text').textContent = demoHazard.obs[appState.lang] || demoHazard.obs.en;
+                            document.getElementById('rep-cat-select').value = String(demoHazard.catIndex);
+                            document.getElementById('report-modal').classList.remove('hidden');
+                        }
+                    } else if (stage.at === 35) {
+                        document.getElementById('report-modal').classList.add('hidden');
+                        document.getElementById('login-modal').classList.add('hidden');
+                        document.getElementById('hud-root').classList.remove('hidden');
+                        flyToZone('warehouse');
+                    } else if (stage.at === 45) {
+                        document.getElementById('report-modal').classList.add('hidden');
+                        await renderLeaderboardModal();
+                        leaderboard.classList.remove('hidden');
+                    } else if (stage.at === 55) {
+                        await renderLeaderboardModal();
+                        leaderboard.classList.remove('hidden');
+                    }
+                    await aiTrainingWait(stage.duration * 1000);
+                }
+                if (!aiTraining.stopRequested) aiTrainingSetStage('COMPLETE', 'Training completed successfully', 'The 60-second AI walkthrough is complete. The recording will download automatically if screen capture was allowed.', 60);
+            } catch (error) {
+                console.error('AI training demo:', error);
+                if (status) status.textContent = 'تعذر إكمال التدريب: ' + (error.message || error);
+            } finally {
+                document.getElementById('report-modal').classList.add('hidden');
+                document.getElementById('login-modal').classList.toggle('hidden', aiTraining.original.loginHidden);
+                document.getElementById('hud-root').classList.toggle('hidden', aiTraining.original.hudHidden);
+                leaderboard.classList.toggle('hidden', aiTraining.original.leaderboardHidden);
+                appState.supervisorXray = aiTraining.original.supervisorXray;
+                setRoofMode(aiTraining.original.roofMode);
+                updateSupervisorUIState();
+                if (camera && controls && aiTraining.original.camera && aiTraining.original.target) {
+                    camera.position.copy(aiTraining.original.camera);
+                    controls.target.copy(aiTraining.original.target);
+                    controls.update();
+                }
+                document.getElementById('mobile-nav-pad')?.classList.remove('hidden');
+                document.getElementById('camera-orbit-pad')?.classList.remove('hidden');
+                aiTraining.running = false;
+                if (aiTraining.recorder && aiTraining.recorder.state !== 'inactive') aiTraining.recorder.stop();
+                else if (aiTraining.stream) aiTraining.stream.getTracks().forEach(track => track.stop());
+                if (aiTraining.stopRequested && status) status.textContent = 'تم إيقاف التدريب. يمكنك إعادة تشغيله من لوحة المشرف.';
+            }
+            if (recordingPromise) {
+                try { await recordingPromise; } catch (error) { if (status) status.textContent = 'اكتمل التدريب، لكن تعذر حفظ الفيديو: ' + error.message; }
+            }
+        }
+
         function bindAllUIEvents() {
             document.querySelectorAll('.lang-btn').forEach(btn => {
                 btn.addEventListener('click', () => applyLanguage(btn.getAttribute('data-lang')));
@@ -4192,6 +4415,15 @@
             });
 
             document.getElementById('tracking-search').addEventListener('input', renderLeaderboardModal);
+
+            document.getElementById('btn-ai-training-start').addEventListener('click', () => {
+                if (!appState.supervisorMode) return;
+                runAITrainingDemo();
+            });
+            document.getElementById('btn-ai-training-stop').addEventListener('click', () => {
+                aiTraining.stopRequested = true;
+                if (aiTraining.recorder && aiTraining.recorder.state !== 'inactive') aiTraining.recorder.stop();
+            });
 
             // HUD Action Buttons
             document.getElementById('btn-roof-toggle').addEventListener('click', () => setRoofMode(appState.roofMode + 1));
