@@ -4689,6 +4689,7 @@
         let autoDemoCompositeFrame = 0;
         let autoDemoStartTime = 0;
         let autoDemoCurrentHazard = null;
+        let autoDemoReportStatus = 'جارٍ التوجه إلى موقع الخطر';
         const AUTO_DEMO_DURATION_MS = 90000;
         const AUTO_DEMO_STEP_MS = AUTO_DEMO_DURATION_MS / 8;
         const AUTO_DEMO_STOPS = [
@@ -4793,7 +4794,7 @@
                 ctx.fillText(desc.slice(0, 54), x + w - 16 * scale, y + 64 * scale);
                 ctx.fillStyle = '#a5f3fc';
                 ctx.fillText('التصنيف: ' + (I18N[appState.lang].categories[autoDemoCurrentHazard.catIndex] || 'مخاطر السلامة'), x + w - 16 * scale, y + 98 * scale);
-                ctx.fillText('درجة الخطورة: عالية  •  الإجراء: تم إرسال البلاغ', x + w - 16 * scale, y + 130 * scale);
+                ctx.fillText('درجة الخطورة: عالية  •  ' + autoDemoReportStatus, x + w - 16 * scale, y + 130 * scale);
                 ctx.fillStyle = '#86efac'; ctx.fillText('✓ تم تحديد الموقع وتسجيل النقاط', x + w - 16 * scale, y + 160 * scale);
             }
             ctx.restore();
@@ -4889,6 +4890,7 @@
                 return;
             }
             autoDemoCurrentHazard = hazard;
+            autoDemoReportStatus = 'جارٍ تحديد موقع الخطر';
             const target = hazard.pos.clone().add(new THREE.Vector3(0, 0, 3.2));
             target.y = 0;
             const avatar = createAutoDemoAvatarIfNeeded(target);
@@ -4915,6 +4917,7 @@
                 if (!autoDemoMode || appState.pendingHazard !== hazard) return;
                 if (autoDemoAvatar) autoDemoAvatar.userData.walking = false;
                 document.getElementById('report-modal').classList.remove('hidden');
+                autoDemoReportStatus = 'تم فتح نموذج البلاغ واختيار التصنيف والخطورة';
                 autoDemoCurrentHazard = hazard;
             }, 6400);
             setTimeout(() => {
@@ -4923,6 +4926,7 @@
                 document.getElementById('btn-submit-report').click();
                 setTimeout(() => {
                     const gained = Math.max(0, appState.score - before);
+                    autoDemoReportStatus = 'تم إرسال البلاغ وتسجيل النقاط';
                     updateAutoDemoPanel(hazard, gained);
                     autoDemoCurrentHazard = hazard;
                     updateHUDMetrics();
@@ -4941,7 +4945,9 @@
                 avatar.position.y = bob;
                 avatar.rotation.y = Math.atan2(autoDemoWalkTo.x - autoDemoWalkFrom.x, autoDemoWalkTo.z - autoDemoWalkFrom.z);
             }
-            const desiredCamera = avatar.position.clone().add(new THREE.Vector3(0, 4.2, 8.8));
+            const behindX = -Math.sin(avatar.rotation.y) * 8.8;
+            const behindZ = -Math.cos(avatar.rotation.y) * 8.8;
+            const desiredCamera = avatar.position.clone().add(new THREE.Vector3(behindX, 4.2, behindZ));
             camera.position.lerp(desiredCamera, Math.min(1, dt * 2.8));
             const lookTarget = avatar.position.clone().add(new THREE.Vector3(0, 1.35, -1.2));
             controls.target.lerp(lookTarget, Math.min(1, dt * 3.5));
