@@ -727,8 +727,8 @@
     </div>
 
     <!-- AI TRAINING WALKTHROUGH OVERLAY -->
-    <div id="ai-training-overlay" class="hidden fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-3">
-        <div class="w-full max-w-2xl rounded-3xl border border-emerald-400/45 bg-[#071711]/95 shadow-2xl p-5 sm:p-7">
+    <div id="ai-training-overlay" class="hidden fixed inset-0 z-[100] bg-transparent flex items-start justify-end p-3 pointer-events-none">
+        <div class="w-full max-w-sm rounded-2xl border border-emerald-400/55 bg-[#071711]/90 backdrop-blur-md shadow-2xl p-4 pointer-events-auto">
             <div class="flex items-center justify-between gap-3">
                 <div>
                     <div class="text-[10px] tracking-[.22em] font-black text-emerald-300">OPPO EGYPT MANUFACTURING</div>
@@ -737,7 +737,7 @@
                 <div class="text-right shrink-0"><div id="ai-training-clock" class="text-2xl font-black font-mono text-emerald-300">00:00</div><div class="text-[9px] text-slate-400">60 SECOND DEMO</div></div>
             </div>
             <div class="mt-5 h-2 rounded-full bg-slate-800 overflow-hidden"><div id="ai-training-progress" class="h-full w-0 bg-emerald-400 transition-all duration-300"></div></div>
-            <div class="mt-5 rounded-2xl border border-slate-700 bg-slate-900/80 p-4 sm:p-5 min-h-[145px]">
+            <div class="mt-5 rounded-2xl border border-slate-700 bg-slate-900/80 p-4 sm:p-5 min-h-[112px]">
                 <div id="ai-training-step-label" class="text-[10px] uppercase tracking-widest text-emerald-300 font-black">GETTING READY</div>
                 <div id="ai-training-step-title" class="text-lg sm:text-xl text-white font-black mt-2">Preparing the virtual factory</div>
                 <p id="ai-training-step-description" class="text-sm text-slate-300 leading-relaxed mt-2">The AI guide will demonstrate the employee journey and supervisor dashboard.</p>
@@ -4149,7 +4149,7 @@
             aiTraining.recorder = recorder;
             aiTraining.chunks = [];
             recorder.addEventListener('dataavailable', event => { if (event.data && event.data.size) aiTraining.chunks.push(event.data); });
-            return new Promise((resolve, reject) => {
+            const done = new Promise((resolve, reject) => {
                 recorder.addEventListener('stop', () => {
                     const type = recorder.mimeType || mimeType || 'video/webm';
                     const blob = new Blob(aiTraining.chunks, { type });
@@ -4173,6 +4173,7 @@
                 recorder.addEventListener('error', event => reject(event.error || new Error('تعذر تسجيل الفيديو.')), { once: true });
                 recorder.start(1000);
             });
+            return { done };
         }
 
         async function runAITrainingDemo() {
@@ -4191,6 +4192,11 @@
                 target: controls ? controls.target.clone() : null,
                 supervisorXray: appState.supervisorXray,
                 roofMode: appState.roofMode,
+                currentZoneLabel: appState.currentZoneLabel,
+                activeDbSessionId,
+                activeUserId,
+                participants: participants.map(item => ({ ...item })),
+                loginSessions: loginSessions.map(item => ({ ...item })),
                 loginHidden: document.getElementById('login-modal').classList.contains('hidden'),
                 hudHidden: document.getElementById('hud-root').classList.contains('hidden'),
                 leaderboardHidden: leaderboard.classList.contains('hidden')
@@ -4204,11 +4210,15 @@
             try {
                 if (status) status.textContent = 'اختر مشاركة نافذة المتصفح (يفضل This Tab) لالتقاط فيديو التدريب بالكامل.';
                 try {
-                    recordingPromise = await aiTrainingStartRecording();
+                    const recording = await aiTrainingStartRecording();
+                    recordingPromise = recording.done;
                 } catch (recordError) {
                     if (status) status.textContent = 'لم يبدأ تسجيل الشاشة: ' + recordError.message + ' سيستمر التدريب دون فيديو.';
                 }
 
+                // Prevent the walkthrough from updating a real employee session or progress row.
+                activeDbSessionId = null;
+                activeUserId = null;
                 const stages = [
                     { at: 0, duration: 10, label: '01 • EMPLOYEE LOGIN', title: 'Secure employee sign-in', desc: 'The employee opens the challenge, enters their individual Employee ID and password, reviews the rules, and signs in. This walkthrough uses a visual demo only; no test account is authenticated.' },
                     { at: 10, duration: 10, label: '02 • START THE INSPECTION', title: 'Enter the virtual OPPO factory', desc: 'The employee starts the inspection tour and explores the 3D smartphone manufacturing environment. Use the navigation controls to move and rotate the camera.' },
@@ -4233,9 +4243,11 @@
                     } else if (stage.at === 10) {
                         document.getElementById('login-modal').classList.add('hidden');
                         document.getElementById('hud-root').classList.remove('hidden');
-                        flyToZone('smt');
+                        appState.currentZoneLabel = 'SMT';
+                        camTransition.active = true; camTransition.targetPos.copy(ZONE_CAMERAS.smt.pos); camTransition.targetLook.copy(ZONE_CAMERAS.smt.look);
                     } else if (stage.at === 20) {
-                        flyToZone('assembly');
+                        appState.currentZoneLabel = 'Final Assembly';
+                        camTransition.active = true; camTransition.targetPos.copy(ZONE_CAMERAS.assembly.pos); camTransition.targetLook.copy(ZONE_CAMERAS.assembly.look);
                         appState.supervisorXray = true;
                         updateSupervisorUIState();
                         const demoHazard = hazardRegistry.find(h => !h.found);
@@ -4250,7 +4262,8 @@
                         document.getElementById('report-modal').classList.add('hidden');
                         document.getElementById('login-modal').classList.add('hidden');
                         document.getElementById('hud-root').classList.remove('hidden');
-                        flyToZone('warehouse');
+                        appState.currentZoneLabel = 'Warehouse';
+                        camTransition.active = true; camTransition.targetPos.copy(ZONE_CAMERAS.warehouse.pos); camTransition.targetLook.copy(ZONE_CAMERAS.warehouse.look);
                     } else if (stage.at === 45) {
                         document.getElementById('report-modal').classList.add('hidden');
                         await renderLeaderboardModal();
@@ -4259,7 +4272,7 @@
                         await renderLeaderboardModal();
                         leaderboard.classList.remove('hidden');
                     }
-                    await aiTrainingWait(stage.duration * 1000);
+                    await aiTrainingWait(Math.max(0, (stage.at + stage.duration) * 1000 - (Date.now() - aiTraining.startedAt)));
                 }
                 if (!aiTraining.stopRequested) aiTrainingSetStage('COMPLETE', 'Training completed successfully', 'The 60-second AI walkthrough is complete. The recording will download automatically if screen capture was allowed.', 60);
             } catch (error) {
@@ -4271,6 +4284,11 @@
                 document.getElementById('hud-root').classList.toggle('hidden', aiTraining.original.hudHidden);
                 leaderboard.classList.toggle('hidden', aiTraining.original.leaderboardHidden);
                 appState.supervisorXray = aiTraining.original.supervisorXray;
+                appState.currentZoneLabel = aiTraining.original.currentZoneLabel;
+                activeDbSessionId = aiTraining.original.activeDbSessionId;
+                activeUserId = aiTraining.original.activeUserId;
+                participants.splice(0, participants.length, ...aiTraining.original.participants);
+                loginSessions.splice(0, loginSessions.length, ...aiTraining.original.loginSessions);
                 setRoofMode(aiTraining.original.roofMode);
                 updateSupervisorUIState();
                 if (camera && controls && aiTraining.original.camera && aiTraining.original.target) {
