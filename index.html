@@ -4193,6 +4193,13 @@
                 supervisorXray: appState.supervisorXray,
                 roofMode: appState.roofMode,
                 currentZoneLabel: appState.currentZoneLabel,
+                score: appState.score,
+                falseAlarms: appState.falseAlarms,
+                foundHazards: new Map(appState.foundHazards),
+                checkedAssets: new Set(appState.checkedAssets),
+                selectedSeverity: appState.selectedSeverity,
+                pendingHazard: appState.pendingHazard,
+                hazardFoundStates: hazardRegistry.map(h => [h, h.found]),
                 activeDbSessionId,
                 activeUserId,
                 participants: participants.map(item => ({ ...item })),
@@ -4257,6 +4264,11 @@
                             document.getElementById('rep-obs-text').textContent = demoHazard.obs[appState.lang] || demoHazard.obs.en;
                             document.getElementById('rep-cat-select').value = String(demoHazard.catIndex);
                             document.getElementById('report-modal').classList.remove('hidden');
+                            document.getElementById('rep-cat-select').value = String(demoHazard.catIndex);
+                            const highSeverity = document.querySelector('.sev-btn[data-sev="high"]');
+                            if (highSeverity) highSeverity.click();
+                            await aiTrainingWait(4500);
+                            if (!aiTraining.stopRequested) document.getElementById('btn-submit-report').click();
                         }
                     } else if (stage.at === 35) {
                         document.getElementById('report-modal').classList.add('hidden');
@@ -4286,6 +4298,13 @@
                 leaderboard.classList.toggle('hidden', aiTraining.original.leaderboardHidden);
                 appState.supervisorXray = aiTraining.original.supervisorXray;
                 appState.currentZoneLabel = aiTraining.original.currentZoneLabel;
+                appState.score = aiTraining.original.score;
+                appState.falseAlarms = aiTraining.original.falseAlarms;
+                appState.foundHazards = new Map(aiTraining.original.foundHazards);
+                appState.checkedAssets = new Set(aiTraining.original.checkedAssets);
+                appState.selectedSeverity = aiTraining.original.selectedSeverity;
+                appState.pendingHazard = aiTraining.original.pendingHazard;
+                aiTraining.original.hazardFoundStates.forEach(([hazard, found]) => { hazard.found = found; });
                 activeDbSessionId = aiTraining.original.activeDbSessionId;
                 activeUserId = aiTraining.original.activeUserId;
                 participants.splice(0, participants.length, ...aiTraining.original.participants);
