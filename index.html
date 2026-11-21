@@ -4721,7 +4721,8 @@
                     if (autoDemoStream) autoDemoStream.getTracks().forEach(t => t.stop());
                     autoDemoStream = null;
                     const note = document.getElementById('auto-demo-record-note');
-                    if (note) note.textContent = 'تم تجهيز فيديو الجولة. اضغط «تنزيل الفيديو» لحفظه على جهازك.';
+                    if (note) note.textContent = 'اكتمل الفيديو؛ جارٍ بدء التنزيل تلقائياً. إذا منع المتصفح التنزيل، استخدم زر «تنزيل الفيديو».';
+                    downloadAutoDemoVideo();
                 });
                 autoDemoRecorder.start(1000);
                 const note = document.getElementById('auto-demo-record-note');
