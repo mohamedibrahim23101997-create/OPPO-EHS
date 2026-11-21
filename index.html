@@ -4279,6 +4279,7 @@
                 console.error('AI training demo:', error);
                 if (status) status.textContent = 'تعذر إكمال التدريب: ' + (error.message || error);
             } finally {
+                overlay.classList.add('hidden');
                 document.getElementById('report-modal').classList.add('hidden');
                 document.getElementById('login-modal').classList.toggle('hidden', aiTraining.original.loginHidden);
                 document.getElementById('hud-root').classList.toggle('hidden', aiTraining.original.hudHidden);
