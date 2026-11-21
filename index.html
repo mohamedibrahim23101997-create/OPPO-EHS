@@ -4227,12 +4227,14 @@
                 activeDbSessionId = null;
                 activeUserId = null;
                 const stages = [
-                    { at: 0, duration: 10, label: '01 • EMPLOYEE LOGIN', title: 'Secure employee sign-in', desc: 'The employee opens the challenge, enters their individual Employee ID and password, reviews the rules, and signs in. This walkthrough uses a visual demo only; no test account is authenticated.' },
-                    { at: 10, duration: 10, label: '02 • START THE INSPECTION', title: 'Enter the virtual OPPO factory', desc: 'The employee starts the inspection tour and explores the 3D smartphone manufacturing environment. Use the navigation controls to move and rotate the camera.' },
-                    { at: 20, duration: 15, label: '03 • IDENTIFY & REPORT HAZARDS', title: 'Find a hazard and submit a report', desc: 'Select a visible unsafe condition, choose its EHS category and risk severity, then submit the finding. The demonstration previews the reporting form without saving a score or employee record.' },
-                    { at: 35, duration: 10, label: '04 • SCORE & QUALIFICATION', title: 'Understand scoring and qualification', desc: 'The challenge evaluates valid unique hazards, category accuracy, risk severity and false alarms. Employees need at least three valid unique hazards to qualify.' },
-                    { at: 45, duration: 10, label: '05 • SUPERVISOR LIVE TRACKING', title: 'Monitor employee participation', desc: 'The supervisor dashboard displays employee login activity, current status, departments, session duration and progress. The view uses the live dashboard data without adding a demo participant.' },
-                    { at: 55, duration: 5, label: '06 • QUALIFIERS & REPORTING', title: 'Review qualifiers and export reports', desc: 'Review the cumulative participant ranking and qualification status, then use the existing Excel export for competition reporting. Training complete.' }
+                    { at: 0, duration: 7, label: '01 • EMPLOYEE LOGIN', title: 'Secure employee sign-in', desc: 'DEMO EMPLOYEE • The employee enters a demonstration ID and masked sample password, reviews the competition rules and acknowledges them. No real account is authenticated.' },
+                    { at: 7, duration: 7, zone: 'smtBat', zoneLabel: 'SMT & Battery Area', label: '02 • SMT INSPECTION', title: 'Inspect the SMT production area', desc: 'The AI guide moves the camera into the SMT and battery production area. Inspect machine guarding, electrical safety, battery handling and emergency access.' },
+                    { at: 14, duration: 7, zone: 'chemRoom', zoneLabel: 'Chemical Storage', label: '03 • CHEMICAL SAFETY', title: 'Check chemical storage controls', desc: 'The tour continues to chemical storage. Look for container labels, closed lids, compatible segregation, spill kits and accessible eyewash facilities.' },
+                    { at: 21, duration: 14, zone: 'assembly', zoneLabel: 'Final Assembly', label: '04 • IDENTIFY & REPORT HAZARDS', title: 'Find a hazard and submit an EHS report', desc: 'A sample finding is opened for demonstration. Review its observation, choose the matching hazard category and assess the risk severity before submitting. The demo state is rolled back afterwards.' },
+                    { at: 35, duration: 6, zone: 'qualityPe', zoneLabel: 'Quality & Process Engineering', label: '05 • QUALITY & MACHINE SAFETY', title: 'Continue the inspection tour', desc: 'The camera visits Quality and Process Engineering. The inspection covers safe machine operation, guarding, ergonomics, housekeeping and worker protection.' },
+                    { at: 41, duration: 6, zone: 'warehouse', zoneLabel: 'Warehouse', label: '06 • WAREHOUSE & TRAFFIC', title: 'Inspect warehouse traffic routes', desc: 'The AI guide checks warehouse aisles, pedestrian segregation, forklift routes, stacked materials, emergency exits and fire equipment access.' },
+                    { at: 47, duration: 8, label: '07 • SUPERVISOR LIVE TRACKING', title: 'Open the supervisor tracking dashboard', desc: 'The supervisor view explains registered participants, currently online employees, login sessions, departments, play duration and inspection progress. Existing records are displayed read-only; no demo employee is inserted.' },
+                    { at: 55, duration: 5, label: '08 • QUALIFIERS & REPORTING', title: 'Review ranking and qualification', desc: 'Review the leaderboard, qualification status and prize ranking. The supervisor can export the report to Excel. The demonstration ends and restores the original application state.' }
                 ];
                 aiTraining.startedAt = Date.now();
                 for (const stage of stages) {
@@ -4247,42 +4249,38 @@
                         document.getElementById('emp-password').value = '••••••••';
                         document.getElementById('emp-dept').selectedIndex = 0;
                         document.getElementById('chk-rules-ack').checked = true;
-                    } else if (stage.at === 10) {
+                    } else {
                         document.getElementById('login-modal').classList.add('hidden');
                         document.getElementById('hud-root').classList.remove('hidden');
-                        appState.currentZoneLabel = 'SMT';
-                        camTransition.active = true; camTransition.targetPos.copy(ZONE_CAMERAS.smt.pos); camTransition.targetLook.copy(ZONE_CAMERAS.smt.look);
-                    } else if (stage.at === 20) {
-                        appState.currentZoneLabel = 'Final Assembly';
-                        camTransition.active = true; camTransition.targetPos.copy(ZONE_CAMERAS.assembly.pos); camTransition.targetLook.copy(ZONE_CAMERAS.assembly.look);
-                        appState.supervisorXray = true;
-                        updateSupervisorUIState();
-                        const demoHazard = hazardRegistry.find(h => !h.found);
-                        if (demoHazard) {
-                            appState.pendingHazard = demoHazard;
-                            document.getElementById('rep-zone-badge').textContent = 'DEMO • ' + demoHazard.id + ' • ' + demoHazard.zoneName;
-                            document.getElementById('rep-obs-text').textContent = demoHazard.obs[appState.lang] || demoHazard.obs.en;
-                            document.getElementById('rep-cat-select').value = String(demoHazard.catIndex);
-                            document.getElementById('report-modal').classList.remove('hidden');
-                            document.getElementById('rep-cat-select').value = String(demoHazard.catIndex);
-                            const highSeverity = document.querySelector('.sev-btn[data-sev="high"]');
-                            if (highSeverity) highSeverity.click();
-                            await aiTrainingWait(4500);
-                            if (!aiTraining.stopRequested) document.getElementById('btn-submit-report').click();
+                        if (stage.zone && ZONE_CAMERAS[stage.zone]) {
+                            appState.currentZoneLabel = stage.zoneLabel;
+                            camTransition.active = true;
+                            camTransition.targetPos.copy(ZONE_CAMERAS[stage.zone].pos);
+                            camTransition.targetLook.copy(ZONE_CAMERAS[stage.zone].look);
                         }
-                    } else if (stage.at === 35) {
-                        document.getElementById('report-modal').classList.add('hidden');
-                        document.getElementById('login-modal').classList.add('hidden');
-                        document.getElementById('hud-root').classList.remove('hidden');
-                        appState.currentZoneLabel = 'Warehouse';
-                        camTransition.active = true; camTransition.targetPos.copy(ZONE_CAMERAS.warehouse.pos); camTransition.targetLook.copy(ZONE_CAMERAS.warehouse.look);
-                    } else if (stage.at === 45) {
-                        document.getElementById('report-modal').classList.add('hidden');
-                        await renderLeaderboardModal();
-                        leaderboard.classList.remove('hidden');
-                    } else if (stage.at === 55) {
-                        await renderLeaderboardModal();
-                        leaderboard.classList.remove('hidden');
+                        if (stage.at === 21) {
+                            appState.supervisorXray = true;
+                            updateSupervisorUIState();
+                            const demoHazard = hazardRegistry.find(h => !h.found);
+                            if (demoHazard) {
+                                appState.pendingHazard = demoHazard;
+                                document.getElementById('rep-zone-badge').textContent = 'DEMO • ' + demoHazard.id + ' • ' + demoHazard.zoneName;
+                                document.getElementById('rep-obs-text').textContent = demoHazard.obs[appState.lang] || demoHazard.obs.en;
+                                document.getElementById('rep-cat-select').value = String(demoHazard.catIndex);
+                                document.getElementById('report-modal').classList.remove('hidden');
+                                const highSeverity = document.querySelector('.sev-btn[data-sev="high"]');
+                                if (highSeverity) highSeverity.click();
+                                await aiTrainingWait(4500);
+                                if (!aiTraining.stopRequested) document.getElementById('btn-submit-report').click();
+                            }
+                        } else if (stage.at === 47) {
+                            document.getElementById('report-modal').classList.add('hidden');
+                            await renderLeaderboardModal();
+                            leaderboard.classList.remove('hidden');
+                        } else if (stage.at === 55) {
+                            await renderLeaderboardModal();
+                            leaderboard.classList.remove('hidden');
+                        }
                     }
                     await aiTrainingWait(Math.max(0, (stage.at + stage.duration) * 1000 - (Date.now() - aiTraining.startedAt)));
                 }
