@@ -184,6 +184,13 @@
                 </ul>
             </div>
 
+            <div class="mb-3">
+                <button type="button" id="btn-auto-training-demo" class="w-full py-3 px-4 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-sm shadow-lg">
+                    ▶ تشغيل التدريب التلقائي التجريبي — AUTO TRAINING DEMO
+                </button>
+                <p class="text-[10px] text-cyan-200/80 text-center mt-1">وضع مستقل ببيانات افتراضية — لا يستخدم حساب المشرف أو بيانات الموظفين</p>
+            </div>
+
             <!-- Mandatory Employee Login Form -->
             <form id="login-form" class="space-y-3" novalidate>
                 <div>
@@ -4658,6 +4665,172 @@
             renderer.render(scene, camera);
         }
 
+
+        // =========================================================================
+        // 16. ISOLATED AUTO TRAINING DEMO — NO AUTH / NO DATABASE WRITES
+        // =========================================================================
+        let autoDemoTimer = null;
+        let autoDemoRecorder = null;
+        let autoDemoChunks = [];
+        let autoDemoStream = null;
+        let autoDemoIndex = 0;
+        let autoDemoFindings = [];
+        const AUTO_DEMO_STOPS = [
+            { name: 'SMT Production', ar: 'منطقة SMT', look: [-30, 1.5, -15.8], camera: [-18, 12, -4], hazards: ['حاجز حماية ماكينة غير مكتمل', 'كابل كهربائي في مسار الحركة'] },
+            { name: 'Battery Area', ar: 'منطقة البطاريات', look: [-30, 1.5, -6.6], camera: [-18, 11, 5], hazards: ['بطارية منتفخة تحتاج إلى عزل', 'حاوية بطاريات تالفة غير موسومة'] },
+            { name: 'Chemical Store', ar: 'مخزن الكيماويات', look: [0, 1.5, 12], camera: [12, 12, 25], hazards: ['عبوة كيميائية دون ملصق GHS', 'مواد غير متوافقة مخزنة معاً'] },
+            { name: 'Assembly', ar: 'منطقة التجميع', look: [0, 1.5, -18.5], camera: [12, 12, -6], hazards: ['نقطة إيقاف طوارئ محجوبة', 'أدوات تعوق ممر الحركة'] },
+            { name: 'Quality', ar: 'منطقة الجودة', look: [17, 1.5, -15], camera: [29, 11, -3], hazards: ['حساس أمان يحتاج إلى تحقق', 'وضعية عمل غير مريحة'] },
+            { name: 'Warehouses', ar: 'المخازن', look: [34, 1.5, 10], camera: [48, 14, 24], hazards: ['تخزين يحجب معدات مكافحة الحريق', 'تكديس غير آمن بالقرب من الممر'] }
+        ];
+
+        function buildAutoDemoPanel() {
+            if (document.getElementById('auto-demo-panel')) return;
+            const panel = document.createElement('section');
+            panel.id = 'auto-demo-panel';
+            panel.dir = 'rtl';
+            panel.style.cssText = 'position:fixed;z-index:80;top:14px;right:14px;width:min(390px,calc(100vw - 28px));max-height:calc(100vh - 28px);overflow:auto;background:rgba(5,18,24,.94);border:1px solid rgba(34,211,238,.65);border-radius:18px;padding:16px;color:#e2e8f0;font:13px Cairo,Arial;box-shadow:0 15px 50px #0009;backdrop-filter:blur(12px)';
+            panel.innerHTML = `
+              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                <strong style="color:#67e8f9;font-size:15px">🤖 EHS AUTO TRAINING</strong>
+                <span style="font-size:10px;color:#fbbf24;border:1px solid #92400e;padding:3px 7px;border-radius:20px">DEMO ONLY</span>
+              </div>
+              <div style="margin:12px 0;padding:10px;background:#0f2932;border-radius:12px">
+                <div style="color:#a5f3fc;font-weight:bold">الموقع الحالي</div>
+                <div id="auto-demo-zone" style="font-size:17px;font-weight:900;margin-top:3px">جارٍ تجهيز الجولة...</div>
+                <div id="auto-demo-progress" style="color:#94a3b8;margin-top:4px">0 / 6</div>
+                <div style="height:6px;background:#1e293b;border-radius:9px;margin-top:8px;overflow:hidden"><div id="auto-demo-bar" style="height:100%;width:0;background:#22d3ee"></div></div>
+              </div>
+              <div style="font-weight:800;color:#a7f3d0;margin-bottom:5px">اكتشافات المحاكاة</div>
+              <div id="auto-demo-findings" style="font-size:12px;line-height:1.9;color:#cbd5e1;min-height:65px">سيتم عرض المخاطر المكتشفة أثناء الجولة.</div>
+              <div style="margin-top:10px;padding-top:10px;border-top:1px solid #334155">
+                <div style="font-weight:800;color:#fbbf24;margin-bottom:6px">لوحة المشرف التجريبية</div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center">
+                  <div style="background:#172b32;padding:8px;border-radius:9px"><b id="auto-demo-participants">12</b><div style="font-size:10px;color:#94a3b8">مشارك افتراضي</div></div>
+                  <div style="background:#172b32;padding:8px;border-radius:9px"><b id="auto-demo-count">0</b><div style="font-size:10px;color:#94a3b8">مخاطر مكتشفة</div></div>
+                  <div style="background:#172b32;padding:8px;border-radius:9px"><b>86%</b><div style="font-size:10px;color:#94a3b8">دقة افتراضية</div></div>
+                </div>
+                <div style="font-size:11px;color:#cbd5e1;margin-top:8px">سجل المشاركين (بيانات توضيحية فقط)</div>
+                <div style="font-size:11px;line-height:1.9;color:#94a3b8">EG-DEMO-001 — أحمد (SMT) — 920 نقطة<br>EG-DEMO-002 — سارة (Quality) — 880 نقطة<br>EG-DEMO-003 — عمر (Assembly) — 850 نقطة</div>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:12px">
+                <button id="auto-demo-record" style="flex:1;background:#dc2626;color:white;border:0;border-radius:9px;padding:9px;font-weight:800">● تسجيل الشاشة</button>
+                <button id="auto-demo-next" style="flex:1;background:#0891b2;color:#00131a;border:0;border-radius:9px;padding:9px;font-weight:800">التالي ⏭</button>
+                <button id="auto-demo-close" style="background:#334155;color:white;border:0;border-radius:9px;padding:9px">إنهاء</button>
+              </div>
+              <div id="auto-demo-record-note" style="font-size:10px;color:#94a3b8;margin-top:7px">التسجيل اختياري ويتطلب السماح بمشاركة الشاشة من المتصفح.</div>
+            `;
+            document.body.appendChild(panel);
+            document.getElementById('auto-demo-next').addEventListener('click', advanceAutoDemo);
+            document.getElementById('auto-demo-close').addEventListener('click', stopAutoDemo);
+            document.getElementById('auto-demo-record').addEventListener('click', toggleAutoDemoRecording);
+        }
+
+        function renderAutoDemoStep() {
+            const stop = AUTO_DEMO_STOPS[autoDemoIndex];
+            if (!stop || !camera || !controls) return;
+            camTransition.targetPos.set(...stop.camera);
+            camTransition.targetLook.set(...stop.look);
+            camTransition.active = true;
+            document.getElementById('auto-demo-zone').textContent = stop.ar + ' · ' + stop.name;
+            document.getElementById('auto-demo-progress').textContent = (autoDemoIndex + 1) + ' / ' + AUTO_DEMO_STOPS.length;
+            document.getElementById('auto-demo-bar').style.width = (((autoDemoIndex + 1) / AUTO_DEMO_STOPS.length) * 100) + '%';
+            const finding = stop.hazards[0];
+            autoDemoFindings.push('✓ ' + stop.ar + ': ' + finding);
+            document.getElementById('auto-demo-findings').innerHTML = autoDemoFindings.map(x => '<div>' + x.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) + '</div>').join('');
+            document.getElementById('auto-demo-count').textContent = autoDemoFindings.length;
+        }
+
+        function advanceAutoDemo() {
+            if (autoDemoIndex >= AUTO_DEMO_STOPS.length - 1) {
+                if (autoDemoTimer) { clearInterval(autoDemoTimer); autoDemoTimer = null; }
+                document.getElementById('auto-demo-zone').textContent = 'اكتملت الجولة التجريبية ✓';
+                document.getElementById('auto-demo-record-note').textContent = 'اكتملت الجولة. أوقف التسجيل لتنزيل الفيديو.';
+                return;
+            }
+            autoDemoIndex++;
+            renderAutoDemoStep();
+        }
+
+        function startAutoDemo() {
+            autoDemoMode = true;
+            appState.demoMode = true;
+            appState.loggedIn = false;
+            appState.supervisorMode = false;
+            appState.user = { id: 'DEMO-AUTO', name: 'EHS AI Demo', dept: 'EHS Demonstration' };
+            document.getElementById('login-modal').classList.add('hidden');
+            document.getElementById('hud-root').classList.remove('hidden');
+            document.getElementById('hud-inspector-badge').textContent = 'AUTO DEMO • SIMULATED INSPECTION';
+            document.getElementById('hud-supervisor-pill').classList.add('hidden');
+            buildAutoDemoPanel();
+            autoDemoIndex = 0;
+            autoDemoFindings = [];
+            renderAutoDemoStep();
+            if (autoDemoTimer) clearInterval(autoDemoTimer);
+            autoDemoTimer = setInterval(() => {
+                if (autoDemoIndex < AUTO_DEMO_STOPS.length - 1) advanceAutoDemo();
+                else { clearInterval(autoDemoTimer); autoDemoTimer = null; }
+            }, 6500);
+        }
+
+        async function toggleAutoDemoRecording() {
+            const btn = document.getElementById('auto-demo-record');
+            const note = document.getElementById('auto-demo-record-note');
+            if (autoDemoRecorder && autoDemoRecorder.state === 'recording') {
+                autoDemoRecorder.stop();
+                if (autoDemoStream) autoDemoStream.getTracks().forEach(track => track.stop());
+                btn.textContent = '● تسجيل الشاشة';
+                return;
+            }
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia || !window.MediaRecorder) {
+                note.textContent = 'المتصفح لا يدعم تسجيل الشاشة؛ يمكنك استخدام تسجيل الشاشة في نظام التشغيل.';
+                return;
+            }
+            try {
+                autoDemoStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: false });
+                autoDemoChunks = [];
+                autoDemoRecorder = new MediaRecorder(autoDemoStream);
+                autoDemoRecorder.ondataavailable = event => { if (event.data && event.data.size) autoDemoChunks.push(event.data); };
+                autoDemoRecorder.onstop = () => {
+                    const blob = new Blob(autoDemoChunks, { type: autoDemoRecorder.mimeType || 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url; a.download = 'OPPO-EHS-Auto-Training-Demo-' + new Date().toISOString().replace(/[:.]/g, '-') + '.webm';
+                    document.body.appendChild(a); a.click(); a.remove();
+                    setTimeout(() => URL.revokeObjectURL(url), 60000);
+                    note.textContent = 'تم تجهيز تنزيل الفيديو التجريبي.';
+                };
+                autoDemoStream.getVideoTracks()[0].addEventListener('ended', () => {
+                    if (autoDemoRecorder && autoDemoRecorder.state === 'recording') autoDemoRecorder.stop();
+                    btn.textContent = '● تسجيل الشاشة';
+                });
+                autoDemoRecorder.start(1000);
+                btn.textContent = '■ إيقاف التسجيل وتنزيل الفيديو';
+                note.textContent = 'التسجيل جارٍ. أوقفه من هنا لتنزيل الفيديو.';
+            } catch (error) {
+                note.textContent = 'لم يبدأ التسجيل: لم تمنح صلاحية مشاركة الشاشة أو تم إلغاؤها.';
+            }
+        }
+
+        function stopAutoDemo() {
+            if (autoDemoTimer) { clearInterval(autoDemoTimer); autoDemoTimer = null; }
+            if (autoDemoRecorder && autoDemoRecorder.state === 'recording') autoDemoRecorder.stop();
+            if (autoDemoStream) autoDemoStream.getTracks().forEach(track => track.stop());
+            const panel = document.getElementById('auto-demo-panel');
+            if (panel) panel.remove();
+            document.getElementById('hud-root').classList.add('hidden');
+            document.getElementById('login-modal').classList.remove('hidden');
+            autoDemoMode = false;
+            appState.demoMode = false;
+            appState.loggedIn = false;
+            appState.user = null;
+        }
+
+        document.addEventListener('click', event => {
+            if (event.target && event.target.id === 'btn-auto-training-demo') startAutoDemo();
+        });
+
+
         window.addEventListener('load', function () {
             // Bind authentication and other UI controls before initializing the 3D scene.
             // A WebGL/Three.js failure must never disable employee or supervisor login.
@@ -4690,6 +4863,7 @@
             try {
                 initThreeScene();
                 animate();
+                if (new URLSearchParams(window.location.search).get('auto') === '1') setTimeout(startAutoDemo, 700);
             } catch (sceneError) {
                 console.error('3D factory initialization failed; login remains available:', sceneError);
                 showToast('تعذر تشغيل المشهد ثلاثي الأبعاد، لكن يمكنك تسجيل الدخول والمحاولة مرة أخرى.', 'error');
