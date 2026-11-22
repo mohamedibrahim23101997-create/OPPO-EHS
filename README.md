@@ -53,3 +53,27 @@ department / القسم
 النسخة المعدلة تعتمد على Supabase للهوية والسجلات المشتركة. ملف HTML وحده لن يحقق تتبعاً بين أجهزة مختلفة قبل تنفيذ SQL ونشر Edge Function وإضافة رابط المشروع ومفتاح anon. لا تضع service_role في المتصفح مطلقاً.
 
 
+
+
+## GLB asset optimization
+
+Install the project dependencies, then optimize a **static factory environment** asset:
+
+```bash
+npm install
+npm run optimize:glb -- public/models/factory.glb public/models/factory.optimized.glb environment
+```
+
+For the **rigged EHS inspector**, use the conservative character profile:
+
+```bash
+npm run optimize:glb -- public/models/ehs-inspector.glb public/models/ehs-inspector.optimized.glb character
+```
+
+Important safeguards:
+
+- Always write to a new output file; the source GLB is never overwritten.
+- `environment` mode refuses files containing skins or animations. It applies static-scene instancing, mesh joining, welding, controlled simplification (50% target ratio), pruning, sparse accessors and WebP texture resizing to 1024 px.
+- `character` mode avoids hierarchy-changing and geometry simplification steps to protect the skeleton, skinning and animation clips. It only deduplicates, prunes unused data, sparsifies eligible accessors and compresses/resizes textures.
+- Review the optimized GLB in a viewer and test all animation clips, mobile loading, visual quality and interaction before replacing any production asset.
+- This utility does not upload assets or modify employee accounts, Supabase data, competition scores or game sessions.
