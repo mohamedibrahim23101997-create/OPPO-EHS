@@ -133,6 +133,14 @@
         @media (max-width: 380px) {
             #camera-orbit-pad { width: 116px; height: 116px; right: 10px; bottom: 12px; }
         }
+    
+        /* Realistic third-person inspector controls */
+        #third-person-hud{position:fixed;left:18px;bottom:22px;z-index:36;display:none;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(3,52px);gap:5px;touch-action:none}
+        #third-person-hud button{border:1px solid rgba(255,255,255,.28);border-radius:14px;background:rgba(15,23,42,.78);color:#fff;font-size:21px;font-weight:800;backdrop-filter:blur(8px);touch-action:none}
+        #third-person-hud button:active,#third-person-hud button.is-pressed{background:rgba(0,139,94,.92);transform:scale(.96)}
+        #third-person-label{position:fixed;left:18px;top:82px;z-index:30;padding:7px 11px;border:1px solid rgba(16,185,129,.5);border-radius:10px;background:rgba(2,20,16,.78);color:#d1fae5;font:700 10px Inter,sans-serif;letter-spacing:.08em;pointer-events:none}
+        @media(max-width:760px){#third-person-hud{display:grid}#third-person-label{top:72px;left:10px}}
+
     </style>
 </head>
 <body class="text-slate-100">
@@ -1298,6 +1306,10 @@
         // 3. THREE.JS SCENE, MATERIALS, PROCEDURAL SIGNAGE & ASSETS
         // =========================================================================
         let scene, camera, renderer, controls;
+        let ehsPlayer = null;
+        let playerYaw = 0;
+        let playerMoveActive = false;
+        const playerInput = { forward:false, backward:false, left:false, right:false };
         const clock = new THREE.Clock();
         const raycaster = new THREE.Raycaster();
         const pointer = new THREE.Vector2();
@@ -1757,22 +1769,110 @@
         }
         function updateNavigationControls(deltaTime) {
             if (!camera || !controls) return;
-            let forwardAmount = (navInput.forward ? 1 : 0) - (navInput.backward ? 1 : 0);
-            let sideAmount = (navInput.right ? 1 : 0) - (navInput.left ? 1 : 0);
-            if (!forwardAmount && !sideAmount) return;
-            const forward = new THREE.Vector3();
-            camera.getWorldDirection(forward);
-            forward.y = 0;
-            if (forward.lengthSq() < 0.0001) return;
-            forward.normalize();
-            const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
-            const movement = forward.multiplyScalar(forwardAmount).add(right.multiplyScalar(sideAmount));
-            if (movement.lengthSq() > 1) movement.normalize();
-            movement.multiplyScalar(14 * deltaTime);
-            camera.position.add(movement);
-            controls.target.add(movement);
+            const forwardAmount = (navInput.forward ? 1 : 0) - (navInput.backward ? 1 : 0);
+            const sideAmount = (navInput.right ? 1 : 0) - (navInput.left ? 1 : 0);
+            if (!ehsPlayer) return;
+            const cameraForward = new THREE.Vector3();
+            camera.getWorldDirection(cameraForward);
+            cameraForward.y = 0;
+            if (cameraForward.lengthSq() < 0.0001) cameraForward.set(0,0,-1);
+            cameraForward.normalize();
+            const cameraRight = new THREE.Vector3().crossVectors(cameraForward, new THREE.Vector3(0,1,0)).normalize();
+            const movement = cameraForward.multiplyScalar(forwardAmount).add(cameraRight.multiplyScalar(sideAmount));
+            playerMoveActive = movement.lengthSq() > 0.0001;
+            if (playerMoveActive) {
+                movement.normalize();
+                const speed = 5.2;
+                ehsPlayer.position.addScaledVector(movement, speed * deltaTime);
+                ehsPlayer.position.x = THREE.MathUtils.clamp(ehsPlayer.position.x, -34.5, 34.5);
+                ehsPlayer.position.z = THREE.MathUtils.clamp(ehsPlayer.position.z, -26.5, 26.5);
+                playerYaw = Math.atan2(movement.x, -movement.z);
+                ehsPlayer.rotation.y = playerYaw;
+            }
+            const target = new THREE.Vector3(ehsPlayer.position.x, ehsPlayer.position.y + 1.12, ehsPlayer.position.z);
+            const delta = target.clone().sub(controls.target);
+            camera.position.add(delta);
+            controls.target.copy(target);
         }
 
+        function createEhsPlayerCharacter() {
+            const player = createDetailedHumanWorker({
+                coatColor: 0x0f172a, vestColor: 0xfacc15, helmetColor: 0x008b5e,
+                skin: 0xd7a477, hasGloves: true, hasMask: true
+            });
+            player.scale.setScalar(1.08);
+            player.position.set(0, 0.18, 23.5);
+            player.rotation.y = Math.PI;
+            player.traverse(obj => { if (obj.isMesh) { obj.castShadow = true; obj.receiveShadow = true; } });
+            scene.add(player);
+            ehsPlayer = player;
+            controls.target.set(0, 1.35, 23.5);
+            camera.position.set(0, 4.4, 31.5);
+            controls.minDistance = 3.4;
+            controls.maxDistance = 10.5;
+            controls.maxPolarAngle = Math.PI * 0.47;
+            controls.enablePan = false;
+            setupThirdPersonInput();
+        }
+
+        function setupThirdPersonInput() {
+            const label = document.createElement('div');
+            label.id = 'third-person-label';
+            label.textContent = 'EHS INSPECTOR • THIRD PERSON';
+            document.body.appendChild(label);
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) Object.keys(navInput).forEach(key => setNavDirection(key, false));
+            });
+        }
+
+        function buildRealisticFactoryDetailPass() {
+            const detail = new THREE.Group();
+            const tileMat = new THREE.MeshStandardMaterial({ color:0xe8edf0, roughness:0.72, metalness:0.03 });
+            const ceilingGridMat = new THREE.MeshStandardMaterial({ color:0x9aa7b1, roughness:0.55, metalness:0.35 });
+            const lightMat = new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0xf8fbff, emissiveIntensity:1.25, roughness:0.28 });
+            const tileGeo = new THREE.BoxGeometry(1.92,0.055,1.92);
+            const tiles = new THREE.InstancedMesh(tileGeo,tileMat,37*29);
+            const dummy = new THREE.Object3D(); let n=0;
+            for(let x=-36;x<=36;x+=2) for(let z=-28;z<=28;z+=2){
+                dummy.position.set(x,6.08,z); dummy.updateMatrix(); tiles.setMatrixAt(n++,dummy.matrix);
+            }
+            tiles.count=n; tiles.receiveShadow=true; detail.add(tiles);
+            const gridGeo = new THREE.BoxGeometry(0.035,0.035,58);
+            for(let x=-37;x<=37;x+=2){
+                const beam=new THREE.Mesh(gridGeo,ceilingGridMat); beam.position.set(x,6.12,0); detail.add(beam);
+            }
+            const crossGeo = new THREE.BoxGeometry(74,0.035,0.035);
+            for(let z=-29;z<=29;z+=2){
+                const beam=new THREE.Mesh(crossGeo,ceilingGridMat); beam.position.set(0,6.12,z); detail.add(beam);
+            }
+            for(let x=-30;x<=30;x+=10) for(let z=-24;z<=24;z+=12){
+                const fixture=new THREE.Mesh(new THREE.BoxGeometry(3.6,0.09,0.72),lightMat);
+                fixture.position.set(x,5.93,z); detail.add(fixture);
+                const glow=new THREE.PointLight(0xf2f8ff,0.22,8); glow.position.set(x,5.55,z); detail.add(glow);
+            }
+            const ventMat=new THREE.MeshStandardMaterial({color:0xb9c4cc,metalness:0.6,roughness:0.42});
+            for(let x=-24;x<=24;x+=12){
+                const vent=new THREE.Mesh(new THREE.BoxGeometry(2.8,0.12,0.75),ventMat);
+                vent.position.set(x,5.83,-4); detail.add(vent);
+                for(let k=-4;k<=4;k++){
+                    const slat=new THREE.Mesh(new THREE.BoxGeometry(0.035,0.035,0.64),MAT.darkSteel);
+                    slat.position.set(x+k*0.28,5.91,-4); detail.add(slat);
+                }
+            }
+            const columnMat=new THREE.MeshStandardMaterial({color:0xdce3e8,roughness:0.72});
+            for(let x=-34;x<=34;x+=17) for(let z=-25;z<=25;z+=25){
+                const col=new THREE.Mesh(new THREE.BoxGeometry(0.42,6.0,0.42),columnMat);
+                col.position.set(x,3.0,z); col.castShadow=true; detail.add(col);
+                const base=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.18,0.7),MAT.silverSteel);
+                base.position.set(x,0.1,z); detail.add(base);
+            }
+            const aisleEdgeMat=new THREE.MeshStandardMaterial({color:0xfacc15,roughness:0.65});
+            [-3.35,3.35].forEach(z=>{
+                const stripe=new THREE.Mesh(new THREE.BoxGeometry(70,0.018,0.075),aisleEdgeMat);
+                stripe.position.set(0,0.205,z); detail.add(stripe);
+            });
+            scene.add(detail);
+        }
 
         function setupCameraOrbitPad() {
             const pad = document.createElement('div');
@@ -1839,15 +1939,17 @@
         function initThreeScene() {
             const container = document.getElementById('canvas-container');
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0xdbeafe);
-            scene.fog = new THREE.FogExp2(0xdbeafe, 0.0028);
+            scene.background = new THREE.Color(0xdce5e9);
+            scene.fog = new THREE.FogExp2(0xdce5e9, 0.0018);
 
             camera = new THREE.PerspectiveCamera(46, container.clientWidth / container.clientHeight, 0.2, 500);
             camera.position.set(76, 68, 86);
 
             renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
             renderer.setSize(container.clientWidth, container.clientHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, window.innerWidth < 760 ? 1.35 : 1.7));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.08;
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             renderer.outputEncoding = THREE.sRGBEncoding;
@@ -1896,6 +1998,8 @@
             buildEnhancedSafetyEnvironmentalAnd5SSystems();
             buildWorkforceAndEHSInspectors();
             buildAll52HiddenHazards();
+            buildRealisticFactoryDetailPass();
+            createEhsPlayerCharacter();
 
             setRoofMode(1);
             window.addEventListener('resize', onWindowResize);
