@@ -1769,8 +1769,8 @@
         }
         function updateNavigationControls(deltaTime) {
             if (!camera || !controls) return;
-            const forwardAmount = (navInput.forward || playerInput.forward ? 1 : 0) - (navInput.backward || playerInput.backward ? 1 : 0);
-            const sideAmount = (navInput.right || playerInput.right ? 1 : 0) - (navInput.left || playerInput.left ? 1 : 0);
+            const forwardAmount = (navInput.forward ? 1 : 0) - (navInput.backward ? 1 : 0);
+            const sideAmount = (navInput.right ? 1 : 0) - (navInput.left ? 1 : 0);
             if (!ehsPlayer) return;
             const cameraForward = new THREE.Vector3();
             camera.getWorldDirection(cameraForward);
@@ -1816,35 +1816,13 @@
         }
 
         function setupThirdPersonInput() {
-            const keys = { KeyW:'forward', ArrowUp:'forward', KeyS:'backward', ArrowDown:'backward', KeyA:'left', ArrowLeft:'left', KeyD:'right', ArrowRight:'right' };
-            window.addEventListener('keydown', event => {
-                const direction = keys[event.code];
-                if (!direction || event.target.closest('input,textarea,select,[contenteditable="true"]')) return;
-                playerInput[direction] = true;
-                event.preventDefault();
-            }, { passive:false });
-            window.addEventListener('keyup', event => {
-                const direction = keys[event.code];
-                if (direction) playerInput[direction] = false;
+            const label = document.createElement('div');
+            label.id = 'third-person-label';
+            label.textContent = 'EHS INSPECTOR • THIRD PERSON';
+            document.body.appendChild(label);
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) Object.keys(navInput).forEach(key => setNavDirection(key, false));
             });
-            window.addEventListener('blur', () => Object.keys(playerInput).forEach(k => playerInput[k] = false));
-            const hud = document.createElement('div');
-            hud.id = 'third-person-hud';
-            const specs = [
-                ['forward','▲',2,1],['left','◀',1,2],['backward','▼',2,2],['right','▶',3,2]
-            ];
-            specs.forEach(([direction,label,col,row]) => {
-                const button = document.createElement('button');
-                button.type='button'; button.textContent=label; button.style.gridColumn=String(col); button.style.gridRow=String(row);
-                button.setAttribute('aria-label',direction);
-                const down=e=>{e.preventDefault();playerInput[direction]=true;button.classList.add('is-pressed');};
-                const up=e=>{e.preventDefault();playerInput[direction]=false;button.classList.remove('is-pressed');};
-                button.addEventListener('pointerdown',down);
-                ['pointerup','pointercancel','lostpointercapture'].forEach(type=>button.addEventListener(type,up));
-                hud.appendChild(button);
-            });
-            document.body.appendChild(hud);
-            const label=document.createElement('div'); label.id='third-person-label'; label.textContent='EHS INSPECTOR • THIRD PERSON'; document.body.appendChild(label);
         }
 
         function buildRealisticFactoryDetailPass() {
