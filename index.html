@@ -198,7 +198,7 @@
                     <label id="ui-label-name" for="emp-name" class="block text-xs font-bold text-emerald-400 mb-1">
                         اسم الموظف الكامل <span class="text-rose-400">*</span>
                     </label>
-                    <input id="emp-name" type="text" required readonly placeholder="مثال: محمد إبراهيم أحمد"
+                    <input id="emp-name" type="text" required readonly placeholder="مثال: محمد إبراهيم أحمد" data-i18n-placeholder="employeeNamePlaceholder"
                         class="w-full px-4 py-2.5 rounded-xl bg-slate-100 border-2 border-transparent focus:border-emerald-400 focus:outline-none text-sm text-slate-900 font-bold text-center" />
                 </div>
 
@@ -206,13 +206,13 @@
                     <label id="ui-label-id" for="emp-id" class="block text-xs font-bold text-emerald-400 mb-1">
                         الرقم الوظيفي (ID) <span class="text-rose-400">*</span>
                     </label>
-                    <input id="emp-id" type="text" required placeholder="مثال: EG000218"
+                    <input id="emp-id" type="text" required placeholder="مثال: EG000218" data-i18n-placeholder="employeeIdPlaceholder"
                         class="w-full px-4 py-2.5 rounded-xl bg-slate-100 border-2 border-transparent focus:border-emerald-400 focus:outline-none text-sm text-slate-900 font-mono font-extrabold text-center" />
                 </div>
 
                 <div>
-                    <label for="emp-password" class="block text-xs font-bold text-emerald-400 mb-1">كلمة المرور الشخصية <span class="text-rose-400">*</span></label>
-                    <input id="emp-password" type="password" required autocomplete="current-password" placeholder="أدخل كلمة المرور التي استلمتها من المشرف"
+                    <label id="ui-password-label" for="emp-password" class="block text-xs font-bold text-emerald-400 mb-1">كلمة المرور الشخصية <span class="text-rose-400">*</span></label>
+                    <input id="emp-password" type="password" required autocomplete="current-password" placeholder="أدخل كلمة المرور التي استلمتها من المشرف" data-i18n-placeholder="employeePasswordPlaceholder"
                         class="w-full px-4 py-2.5 rounded-xl bg-slate-100 border-2 border-transparent focus:border-emerald-400 focus:outline-none text-sm text-slate-900 font-bold text-center" />
                 </div>
 
@@ -260,24 +260,24 @@
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center gap-2">
                     <span class="text-xl">👑</span>
-                    <h3 class="text-base font-extrabold text-amber-300">
+                    <h3 id="ui-supervisor-auth-title" class="text-base font-extrabold text-amber-300">
                         تفعيل وضع المشرف (Supervisor Mode)
                     </h3>
                 </div>
                 <button type="button" id="btn-close-sup-auth" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs">✕</button>
             </div>
 
-            <p class="text-xs text-slate-300 mb-3 leading-relaxed">
+            <p id="ui-supervisor-auth-description" class="text-xs text-slate-300 mb-3 leading-relaxed">
                 أدخل رمز مرور مشرف السلامة والصحة المهنية (EHS Supervisor) للوصول إلى سجل تتبع دخول الموظفين، إظهار مواقع المخالفات، أو مسح السجلات.
             </p>
 
             <div class="space-y-3">
                 <div>
-                    <label for="sup-email-input" class="block text-xs font-bold text-amber-300 mb-1">البريد الإلكتروني للمشرف</label>
+                    <label id="ui-supervisor-email-label" for="sup-email-input" class="block text-xs font-bold text-amber-300 mb-1">البريد الإلكتروني للمشرف</label>
                     <input id="sup-email-input" type="email" autocomplete="username" value="mo.i.kafrana@gmail.com"
                         class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-amber-500/40 focus:border-amber-400 focus:outline-none text-sm text-white text-center mb-2" />
-                    <label for="sup-pin-input" class="block text-xs font-bold text-amber-300 mb-1">كلمة مرور حساب المشرف</label>
-                    <input id="sup-pin-input" type="password" autocomplete="current-password" placeholder="أدخل كلمة مرور حسابك"
+                    <label id="ui-supervisor-password-label" for="sup-pin-input" class="block text-xs font-bold text-amber-300 mb-1">كلمة مرور حساب المشرف</label>
+                    <input id="sup-pin-input" type="password" autocomplete="current-password" placeholder="أدخل كلمة مرور حسابك" data-i18n-placeholder="supervisorPasswordPlaceholder"
                         class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-amber-500/40 focus:border-amber-400 focus:outline-none text-sm text-white font-mono text-center" />
                 </div>
 
@@ -531,11 +531,11 @@
         <div class="w-full max-w-3xl bg-slate-900 border border-sky-400/40 rounded-3xl p-5 sm:p-6 shadow-2xl max-h-[90vh] flex flex-col">
             <div class="flex items-center justify-between gap-2 pb-3 border-b border-slate-800">
                 <div>
-                    <h3 class="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
+                    <h3 id="ui-env-title" class="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
                         <span>🌡️</span>
                         <span>OPPO Egypt Environmental Monitoring System (°C / %RH)</span>
                     </h3>
-                    <p class="text-xs text-slate-400">
+                    <p id="ui-env-subtitle" class="text-xs text-slate-400">
                         ISO 14001 &amp; Cleanroom ESD Micro-Climate Telemetry • Configurable High/Low Alarm Thresholds
                     </p>
                 </div>
@@ -544,19 +544,19 @@
 
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-950/75 border border-slate-800 rounded-2xl p-3 my-3 text-xs">
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase">Min Temp (°C)</label>
+                    <label id="ui-env-min-temp" class="block text-[10px] font-bold text-slate-400 uppercase">Min Temp (°C)</label>
                     <input id="cfg-min-temp" type="number" step="0.5" value="18.0" class="mt-1 w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono font-bold" />
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase">Max Temp (°C)</label>
+                    <label id="ui-env-max-temp" class="block text-[10px] font-bold text-slate-400 uppercase">Max Temp (°C)</label>
                     <input id="cfg-max-temp" type="number" step="0.5" value="25.0" class="mt-1 w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono font-bold" />
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase">Min Humidity (%RH)</label>
+                    <label id="ui-env-min-rh" class="block text-[10px] font-bold text-slate-400 uppercase">Min Humidity (%RH)</label>
                     <input id="cfg-min-rh" type="number" step="1" value="35" class="mt-1 w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono font-bold" />
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 uppercase">Max Humidity (%RH)</label>
+                    <label id="ui-env-max-rh" class="block text-[10px] font-bold text-slate-400 uppercase">Max Humidity (%RH)</label>
                     <input id="cfg-max-rh" type="number" step="1" value="60" class="mt-1 w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono font-bold" />
                 </div>
             </div>
@@ -565,11 +565,11 @@
                 <table class="w-full text-left border-collapse text-xs">
                     <thead>
                         <tr class="bg-slate-950 text-slate-400 uppercase text-[10px] tracking-wider">
-                            <th class="py-2.5 px-3 rounded-tl-xl">Sensor ID</th>
-                            <th class="py-2.5 px-3">Monitored Factory Zone</th>
-                            <th class="py-2.5 px-3">Temp (°C)</th>
-                            <th class="py-2.5 px-3">Humidity (%RH)</th>
-                            <th class="py-2.5 px-3 rounded-tr-xl">Alarm Status</th>
+                            <th id="ui-env-th-sensor" class="py-2.5 px-3 rounded-tl-xl">Sensor ID</th>
+                            <th id="ui-env-th-zone" class="py-2.5 px-3">Monitored Factory Zone</th>
+                            <th id="ui-env-th-temp" class="py-2.5 px-3">Temp (°C)</th>
+                            <th id="ui-env-th-rh" class="py-2.5 px-3">Humidity (%RH)</th>
+                            <th id="ui-env-th-alarm" class="py-2.5 px-3 rounded-tr-xl">Alarm Status</th>
                         </tr>
                     </thead>
                     <tbody id="env-tbody" class="divide-y divide-slate-800/80">
@@ -643,7 +643,7 @@
                             <span>🕒</span>
                             <span>سجل تتبع دخول الموظفين الفعلي والنشط (Live Employee Login Log)</span>
                         </div>
-                        <input id="tracking-search" type="text" placeholder="بحث بالاسم أو الرقم الوظيفي أو الإدارة..."
+                        <input id="tracking-search" type="text" placeholder="بحث بالاسم أو الرقم الوظيفي أو الإدارة..." data-i18n-placeholder="trackingSearchPlaceholder"
                             class="w-full sm:w-64 px-3 py-1.5 rounded-xl bg-[#0f1922] border border-slate-700 focus:border-emerald-400 focus:outline-none text-xs text-white" />
                     </div>
 
@@ -4108,6 +4108,49 @@
             ]
         };
 
+        const SUPPLEMENTAL_UI_I18N = {
+            ar: {
+                passwordLabel:'كلمة المرور الشخصية', employeeNamePlaceholder:'مثال: محمد إبراهيم أحمد', employeeIdPlaceholder:'مثال: EG000218', employeePasswordPlaceholder:'أدخل كلمة المرور التي استلمتها من المشرف', supervisorPasswordPlaceholder:'أدخل كلمة مرور حسابك', trackingSearchPlaceholder:'بحث بالاسم أو الرقم الوظيفي أو الإدارة...',
+                supervisorTitle:'تفعيل وضع المشرف (Supervisor Mode)', supervisorDescription:'أدخل بيانات حساب مشرف السلامة والصحة المهنية للوصول إلى سجل تتبع دخول الموظفين وإدارة أدوات المشرف.', supervisorEmail:'البريد الإلكتروني للمشرف', supervisorPassword:'كلمة مرور حساب المشرف', cancel:'إلغاء', confirm:'دخول كمشرف الآن 👑',
+                envTitle:'نظام مراقبة البيئة بمصنع OPPO مصر (°C / %RH)', envSubtitle:'قياسات بيئة غرف الإنتاج النظيفة وESD وفق ISO 14001 • حدود إنذار قابلة للضبط', minTemp:'أقل درجة حرارة (°C)', maxTemp:'أعلى درجة حرارة (°C)', minRh:'أقل رطوبة (%RH)', maxRh:'أعلى رطوبة (%RH)', sensor:'معرّف المستشعر', zone:'منطقة المصنع المراقبة', temp:'درجة الحرارة (°C)', rh:'الرطوبة (%RH)', alarm:'حالة الإنذار',
+                lbTitle:'سجل دخول الموظفين النشط وترتيب المشاركين',lbSubtitle:'متابعة دخول الموظفين ومدة اللعب والمخاطر المكتشفة والنقاط التراكمية',registered:'إجمالي المشاركين المسجلين',online:'الموظفون المتصلون الآن',sessions:'إجمالي جلسات الدخول',myscore:'نقاطك الحالية / الدقة',trackingLog:'سجل دخول الموظفين المباشر',leaderboard:'ترتيب المشاركين والفائزين بالنقاط التراكمية'
+            },
+            en: {
+                passwordLabel:'Personal Password', employeeNamePlaceholder:'Example: Mohamed Ibrahim Ahmed', employeeIdPlaceholder:'Example: EG000218', employeePasswordPlaceholder:'Enter the password provided by your supervisor', supervisorPasswordPlaceholder:'Enter your account password', trackingSearchPlaceholder:'Search by name, employee ID, or department...',
+                supervisorTitle:'Enable Supervisor Mode', supervisorDescription:'Enter your EHS supervisor account details to access employee login tracking and supervisor tools.', supervisorEmail:'Supervisor Email', supervisorPassword:'Supervisor Account Password', cancel:'Cancel', confirm:'Sign in as Supervisor 👑',
+                envTitle:'OPPO Egypt Environmental Monitoring System (°C / %RH)', envSubtitle:'Cleanroom and ESD environmental monitoring aligned with ISO 14001 • Configurable alarm limits', minTemp:'Minimum Temperature (°C)', maxTemp:'Maximum Temperature (°C)', minRh:'Minimum Humidity (%RH)', maxRh:'Maximum Humidity (%RH)', sensor:'Sensor ID', zone:'Monitored Factory Zone', temp:'Temperature (°C)', rh:'Humidity (%RH)', alarm:'Alarm Status',
+                lbTitle:'Live Employee Login Log & Participant Leaderboard',lbSubtitle:'Live tracking of employee logins, play duration, hazards found, and cumulative scores',registered:'Total Registered Participants',online:'Employees Online Now',sessions:'Total Login Sessions',myscore:'Your Current Score / Accuracy',trackingLog:'Live Employee Login Tracking Log',leaderboard:'Cumulative Participant & Winners Leaderboard'
+            },
+            zh: {
+                passwordLabel:'个人密码', employeeNamePlaceholder:'示例：Mohamed Ibrahim Ahmed', employeeIdPlaceholder:'示例：EG000218', employeePasswordPlaceholder:'请输入主管提供的密码', supervisorPasswordPlaceholder:'请输入您的账户密码', trackingSearchPlaceholder:'按姓名、工号或部门搜索...',
+                supervisorTitle:'启用主管模式', supervisorDescription:'请输入EHS主管账户信息，以访问员工登录记录和主管管理工具。', supervisorEmail:'主管电子邮箱', supervisorPassword:'主管账户密码', cancel:'取消', confirm:'以主管身份登录 👑',
+                envTitle:'OPPO埃及工厂环境监测系统 (°C / %RH)', envSubtitle:'依据ISO 14001进行洁净室及ESD环境监测 • 可配置报警阈值', minTemp:'最低温度 (°C)', maxTemp:'最高温度 (°C)', minRh:'最低湿度 (%RH)', maxRh:'最高湿度 (%RH)', sensor:'传感器编号', zone:'受监测的工厂区域', temp:'温度 (°C)', rh:'湿度 (%RH)', alarm:'报警状态',
+                lbTitle:'员工实时登录记录与参赛排名',lbSubtitle:'实时跟踪员工登录、游戏时长、发现的隐患及累计积分',registered:'已注册参赛员工总数',online:'当前在线员工',sessions:'登录会话总数',myscore:'当前得分 / 准确率',trackingLog:'员工实时登录记录',leaderboard:'累计积分参赛者与获奖排名'
+            }
+        };
+        function applySupplementalLanguage(lang) {
+            const t = SUPPLEMENTAL_UI_I18N[lang] || SUPPLEMENTAL_UI_I18N.en;
+            const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+            set('ui-password-label', t.passwordLabel);
+            set('ui-supervisor-auth-title', t.supervisorTitle);
+            set('ui-supervisor-auth-description', t.supervisorDescription);
+            set('ui-supervisor-email-label', t.supervisorEmail);
+            set('ui-supervisor-password-label', t.supervisorPassword);
+            set('ui-supervisor-cancel', t.cancel);
+            set('ui-supervisor-confirm', t.confirm);
+            set('ui-env-title', t.envTitle);
+            set('ui-env-subtitle', t.envSubtitle);
+            set('ui-env-min-temp', t.minTemp); set('ui-env-max-temp', t.maxTemp);
+            set('ui-env-min-rh', t.minRh); set('ui-env-max-rh', t.maxRh);
+            set('ui-env-th-sensor', t.sensor); set('ui-env-th-zone', t.zone);
+            set('ui-env-th-temp', t.temp); set('ui-env-th-rh', t.rh); set('ui-env-th-alarm', t.alarm);
+            set('lb-title', t.lbTitle); set('lb-subtitle', t.lbSubtitle);
+            const placeholders = { 'employeeNamePlaceholder':'emp-name', 'employeeIdPlaceholder':'emp-id', 'employeePasswordPlaceholder':'emp-password', 'supervisorPasswordPlaceholder':'sup-pin-input', 'trackingSearchPlaceholder':'tracking-search' };
+            Object.entries(placeholders).forEach(([key,id]) => { const el=document.getElementById(id); if(el) el.placeholder=t[key]; });
+            const kpi = document.querySelectorAll('#leaderboard-modal .kpi-label');
+            kpi.forEach(el => { if (el.dataset.i18nKey && t[el.dataset.i18nKey]) el.textContent=t[el.dataset.i18nKey]; });
+        }
+
         function getAssetInspectionChecks(asset) {
             const code = String(asset.code || '').toUpperCase();
             const lang = appState.lang || 'ar';
@@ -4351,6 +4394,7 @@
         function applyLanguage(lang) {
             appState.lang = lang;
             const t = I18N[lang];
+            applySupplementalLanguage(lang);
             document.documentElement.setAttribute('dir', t.dir);
             document.documentElement.setAttribute('lang', lang);
 
