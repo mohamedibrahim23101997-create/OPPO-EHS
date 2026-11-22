@@ -5,5 +5,15 @@
   "description": "OPPO Egypt EHS training game with Vercel API and Supabase authentication",
   "dependencies": {
     "@supabase/supabase-js": "^2.57.0"
+  },
+  "type": "module",
+  "scripts": {
+    "optimize:glb": "node scripts/optimize-glb.mjs"
+  },
+  "devDependencies": {
+    "@gltf-transform/core": "^4.2.1",
+    "@gltf-transform/functions": "^4.2.1",
+    "meshoptimizer": "^0.22.0",
+    "sharp": "^0.33.5"
   }
 }
