@@ -389,6 +389,9 @@
                     <span>📥</span>
                     <span id="txt-export-btn">تصدير Excel (.xls)</span>
                 </button>
+                <button id="btn-ehs-inspection-report" type="button" class="mt-1.5 w-full py-2 px-3 rounded-xl bg-sky-700 hover:bg-sky-600 border border-sky-400/40 text-white text-xs font-extrabold shadow-lg transition active:scale-95 flex items-center justify-center gap-1.5">
+                    <span>📋</span><span>تقرير فحوصات EHS</span>
+                </button>
 
                 <!-- 12 Hazard Categories Progress Mini-Bar -->
                 <div class="mt-2.5 pt-2 border-t border-slate-800">
@@ -488,16 +491,27 @@
                 <button id="btn-close-asset" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs">✕</button>
             </div>
 
-            <div id="asset-specs-box" class="bg-slate-950/80 border border-slate-800 rounded-2xl p-3.5 space-y-2 text-xs text-slate-200 mb-3">
+            <div id="asset-simulation-note" class="rounded-xl border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-[10px] leading-relaxed text-amber-200 mb-3">
+                بيانات المعدة المعروضة جزء من المحاكاة التدريبية ولا تمثل قراءة ميدانية فعلية. نفّذ الفحص الفعلي وفق إجراءات الموقع.
             </div>
-
+            <div id="asset-specs-box" class="bg-slate-950/80 border border-slate-800 rounded-2xl p-3.5 space-y-2 text-xs text-slate-200 mb-3"></div>
+            <div class="mb-3">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <label class="text-xs font-extrabold text-slate-200">قائمة التحقق التفاعلية</label>
+                    <span id="asset-check-count" class="text-[10px] text-sky-300 font-bold">0 / 0</span>
+                </div>
+                <div id="asset-checklist" class="space-y-2 max-h-52 overflow-y-auto pr-1"></div>
+            </div>
+            <div class="mb-3">
+                <label for="asset-inspection-notes" class="block text-xs font-bold text-slate-300 mb-1">ملاحظات المفتش / الإجراء التصحيحي</label>
+                <textarea id="asset-inspection-notes" rows="2" maxlength="1500" placeholder="اكتب الملاحظة، العيب المكتشف، أو الإجراء المطلوب..." class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white focus:border-sky-400 focus:outline-none"></textarea>
+            </div>
+            <div id="asset-inspection-result" class="text-[11px] rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-slate-300 mb-3">حدد عناصر الفحص ثم احفظ التقرير.</div>
             <div class="flex items-center justify-between gap-2 pt-1">
                 <button id="btn-verify-asset" type="button" class="flex-1 py-2.5 px-3 rounded-xl oppo-gradient hover:opacity-95 text-xs font-extrabold text-white shadow-lg">
-                    ✓ توثيق فحص المعدة (+20 pts)
+                    ✓ حفظ تقرير الفحص (+20 نقطة عند أول توثيق)
                 </button>
-                <button id="btn-close-asset-2" type="button" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">
-                    إغلاق
-                </button>
+                <button id="btn-close-asset-2" type="button" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300">إغلاق</button>
             </div>
         </div>
     </div>
@@ -2719,6 +2733,34 @@
                 });
             });
 
+            // Interactive low-voltage distribution panel in the Electromechanical area
+            const lvPanel = new THREE.Group();
+            lvPanel.position.set(10.2, 0.05, 22.4);
+            const panelBody = new THREE.Mesh(new THREE.BoxGeometry(1.35, 1.95, 0.24), MAT.darkSteel);
+            panelBody.position.y = 1.0;
+            lvPanel.add(panelBody);
+            const panelDoor = new THREE.Mesh(new THREE.BoxGeometry(1.22, 1.78, 0.035), new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.55, roughness: 0.4 }));
+            panelDoor.position.set(0, 1.0, 0.14);
+            lvPanel.add(panelDoor);
+            const panelLabel = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.36), new THREE.MeshBasicMaterial({ map: makeSignTex('LV DISTRIBUTION', 'DANGER • 400V', '#b91c1c', '#ffffff', '#ffffff', 320, 100) }));
+            panelLabel.position.set(0, 1.42, 0.165);
+            lvPanel.add(panelLabel);
+            const panelHandle = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.24, 0.07), MAT.silverSteel);
+            panelHandle.position.set(0.48, 0.98, 0.19);
+            lvPanel.add(panelHandle);
+            sysGroup.add(lvPanel);
+            registerSafetyAsset(lvPanel, {
+                code: 'EL-PNL-01',
+                name: 'Low Voltage Distribution Panel (LVDB)',
+                zone: 'Electromechanical Switchgear Room',
+                status: 'Inspection required',
+                specs: [
+                    'Training model: Low-voltage distribution enclosure',
+                    'Verify enclosure, warning labels, cable entries and visible condition',
+                    'Never open an energized panel or touch exposed conductors during this training'
+                ]
+            });
+
             // External Campus Pillar Fire Hydrants
             [
                 { id: 'HYD-EXT-01', x: -45, z: 34, name: 'External Pillar Fire Hydrant (West Road)' },
@@ -3933,16 +3975,182 @@
             document.getElementById('leaderboard-modal').classList.remove('hidden');
         }
 
+        function getAssetInspectionChecks(asset) {
+            const code = String(asset.code || '').toUpperCase();
+            if (code.startsWith('EXT-')) return [
+                'جسم الطفاية سليم ولا يوجد صدأ أو تلف أو تسريب ظاهر',
+                'مؤشر الضغط في النطاق الأخضر (أو وزن أسطوانة CO₂ ضمن الحد المعتمد)',
+                'مسمار الأمان والختم موجودان وغير متضررين',
+                'الخرطوم والبشبوري مثبتان وخاليان من الانسداد أو التشقق',
+                'بطاقة الفحص الدوري والاختبار الهيدروستاتيكي ساريتان',
+                'الطفاية ظاهرة وسهلة الوصول ولا توجد عوائق أمامها'
+            ];
+            if (code.startsWith('EL-PNL-') || /electrical|distribution|switchgear/i.test(asset.name || '')) return [
+                'باب اللوحة مغلق ومثبت ولا توجد أجزاء حية مكشوفة',
+                'لا توجد أسلاك مكشوفة أو عوازل تالفة أو آثار سخونة',
+                'تحذيرات الخطر الكهربائي وبيانات الدوائر واضحة ومقروءة',
+                'لا توجد مياه أو أتربة كثيفة أو مواد مخزنة داخل/أمام اللوحة',
+                'مساحة الوصول والعمل أمام اللوحة خالية حسب متطلبات الموقع',
+                'التأريض ومداخل الكابلات والأغطية سليمة ظاهرياً'
+            ];
+            if (code.startsWith('FACP')) return [
+                'لا توجد إنذارات أو أعطال ظاهرة على لوحة التحكم',
+                'مصدر التغذية الرئيسي والبطاريات الاحتياطية دون مؤشرات عطل',
+                'مفاتيح التشغيل وأغطية اللوحة سليمة ومؤمنة',
+                'سجل الاختبار والصيانة محدث',
+                'الوصول إلى اللوحة والمنطقة المحيطة بها خالٍ من العوائق'
+            ];
+            if (code.startsWith('HYD') || code.startsWith('FIRE') || code.startsWith('FC-')) return [
+                'المعدة أو الخزانة سليمة وظاهرة ويمكن الوصول إليها',
+                'الخراطيم والوصلات والفوهات موجودة ولا يظهر بها تلف',
+                'الصمامات والأغطية ومحابس التشغيل بحالة ظاهرية سليمة',
+                'بطاقة الفحص والصيانة محدثة',
+                'لا توجد عوائق أمام المعدة أو مسار استخدامها'
+            ];
+            return [
+                'المعدة سليمة ظاهرياً ولا توجد أجزاء مكسورة أو حادة',
+                'وسائل الحماية أو التشغيل متاحة وسليمة ظاهرياً',
+                'ملصقات التعريف والتحذير واضحة',
+                'الموقع المحيط بالمعدة مرتب وخالٍ من العوائق',
+                'سجل الفحص أو الصيانة محدث عند انطباقه'
+            ];
+        }
+
+        function updateAssetInspectionCount() {
+            const checks = document.querySelectorAll('#asset-checklist input[type="checkbox"]');
+            const passed = Array.from(checks).filter(x => x.checked).length;
+            document.getElementById('asset-check-count').textContent = `${passed} / ${checks.length}`;
+            const result = document.getElementById('asset-inspection-result');
+            result.textContent = passed === checks.length
+                ? '✓ تم تحديد جميع نقاط الفحص كمطابقة. راجع النتيجة قبل الحفظ.'
+                : `تم التحقق من ${passed} من ${checks.length} نقاط. النقاط غير المحددة تحتاج إلى تحقق أو متابعة.`;
+            result.className = passed === checks.length
+                ? 'text-[11px] rounded-xl bg-emerald-950/50 border border-emerald-500/30 px-3 py-2 text-emerald-200 mb-3'
+                : 'text-[11px] rounded-xl bg-amber-950/40 border border-amber-500/30 px-3 py-2 text-amber-200 mb-3';
+        }
+
         function openSafetyAssetModal(asset) {
             appState.pendingAsset = asset;
             document.getElementById('asset-code-badge').textContent = asset.code;
-            document.getElementById('asset-status-badge').textContent = asset.status;
+            document.getElementById('asset-status-badge').textContent = 'SIMULATION • VERIFY';
             document.getElementById('asset-modal-title').textContent = asset.name;
             document.getElementById('asset-zone-sub').textContent = `Location: ${asset.zone}`;
-            document.getElementById('asset-specs-box').innerHTML = asset.specs
-                .map(line => `<div class="flex items-start gap-2"><span class="text-emerald-400 font-bold">•</span><span>${line}</span></div>`)
-                .join('');
+            const specs = document.getElementById('asset-specs-box');
+            specs.replaceChildren();
+            (asset.specs || []).forEach(line => {
+                const item = document.createElement('div');
+                item.className = 'flex items-start gap-2';
+                const bullet = document.createElement('span');
+                bullet.className = 'text-emerald-400 font-bold';
+                bullet.textContent = '•';
+                const label = document.createElement('span');
+                label.textContent = line;
+                item.append(bullet, label);
+                specs.appendChild(item);
+            });
+            const checklist = document.getElementById('asset-checklist');
+            checklist.replaceChildren();
+            getAssetInspectionChecks(asset).forEach((label, index) => {
+                const row = document.createElement('label');
+                row.className = 'flex items-start gap-2 rounded-xl border border-slate-700 bg-slate-950/70 p-2.5 text-[11px] text-slate-200 cursor-pointer';
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.className = 'mt-0.5 accent-emerald-400 shrink-0';
+                input.dataset.checkIndex = String(index);
+                input.addEventListener('change', updateAssetInspectionCount);
+                const text = document.createElement('span');
+                text.textContent = label;
+                row.append(input, text);
+                checklist.appendChild(row);
+            });
+            document.getElementById('asset-inspection-notes').value = '';
+            updateAssetInspectionCount();
             document.getElementById('asset-modal').classList.remove('hidden');
+        }
+
+        async function saveAssetInspectionReport() {
+            const asset = appState.pendingAsset;
+            if (!asset || !activeUserId || !supabaseClient) {
+                showToast('تعذر حفظ التقرير: جلسة الموظف أو اتصال Supabase غير متاح.', 'error');
+                return;
+            }
+            const checks = Array.from(document.querySelectorAll('#asset-checklist input[type="checkbox"]')).map((input, index) => ({
+                id: index + 1,
+                label: input.parentElement.querySelector('span').textContent,
+                passed: input.checked
+            }));
+            const notes = document.getElementById('asset-inspection-notes').value.trim();
+            const allPassed = checks.length > 0 && checks.every(x => x.passed);
+            const report = {
+                user_id: activeUserId,
+                employee_id: appState.user.id,
+                full_name: appState.user.name,
+                department: appState.user.dept,
+                session_id: activeDbSessionId || null,
+                asset_code: asset.code,
+                asset_name: asset.name,
+                zone: asset.zone,
+                inspection_status: allPassed ? 'compliant' : 'requires_follow_up',
+                checks,
+                notes
+            };
+            const button = document.getElementById('btn-verify-asset');
+            button.disabled = true;
+            button.textContent = 'جارٍ حفظ تقرير الفحص...';
+            try {
+                const { error } = await supabaseClient.from('ehs_asset_inspections').insert(report);
+                if (error) throw error;
+                const firstCheck = !appState.checkedAssets.has(asset.code);
+                appState.checkedAssets.add(asset.code);
+                asset.verified = true;
+                if (firstCheck) appState.score += 20;
+                syncUserToLeaderboard();
+                updateHUDMetrics();
+                document.getElementById('asset-modal').classList.add('hidden');
+                showToast(allPassed
+                    ? 'تم حفظ فحص مطابق في سجل EHS بنجاح.'
+                    : 'تم حفظ التقرير مع نقاط تحتاج إلى متابعة. راجع الملاحظات والإجراءات التصحيحية.', allPassed ? 'success' : 'warning');
+            } catch (error) {
+                console.error('EHS asset inspection save failed:', error);
+                showToast('لم يتم حفظ التقرير. تأكد من تشغيل ترحيل Supabase الجديد ثم أعد المحاولة.', 'error');
+            } finally {
+                button.disabled = false;
+                button.textContent = '✓ حفظ تقرير الفحص (+20 نقطة عند أول توثيق)';
+            }
+        }
+
+        async function exportEhsInspectionReport() {
+            try {
+                const db = requireBackend();
+                const { data, error } = await db.from('ehs_asset_inspections')
+                    .select('created_at,employee_id,full_name,department,asset_code,asset_name,zone,inspection_status,checks,notes')
+                    .order('created_at', { ascending: false }).limit(3000);
+                if (error) throw error;
+                if (!data || !data.length) {
+                    showToast('لا توجد فحوصات مسجلة لتصديرها حتى الآن.', 'info');
+                    return;
+                }
+                const rows = data.map(x => ({
+                    'Inspection Date': new Date(x.created_at).toLocaleString('en-GB'),
+                    'Employee ID': x.employee_id,
+                    'Inspector': x.full_name,
+                    'Department': x.department,
+                    'Asset Code': x.asset_code,
+                    'Equipment': x.asset_name,
+                    'Location': x.zone,
+                    'Result': x.inspection_status === 'compliant' ? 'Compliant' : 'Requires Follow-up',
+                    'Checklist': (x.checks || []).map(c => `${c.passed ? '[OK]' : '[FOLLOW-UP]'} ${c.label}`).join(' | '),
+                    'Notes / Corrective Action': x.notes || ''
+                }));
+                const ws = XLSX.utils.json_to_sheet(rows);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'EHS Asset Inspections');
+                XLSX.writeFile(wb, 'OPPO_EHS_Asset_Inspection_Report.xlsx');
+                showToast('تم تصدير تقرير فحوصات EHS بنجاح.', 'success');
+            } catch (error) {
+                console.error('EHS report export failed:', error);
+                showToast('تعذر تصدير التقرير. تحقق من تشغيل ترحيل Supabase الجديد وصلاحيات الحساب.', 'error');
+            }
         }
 
         function renderEnvDashboard() {
@@ -4517,23 +4725,11 @@
                 });
             });
 
-            // Safety Equipment Asset Inspection Modal Buttons
+            // Interactive asset inspections and EHS reporting
             document.getElementById('btn-close-asset').addEventListener('click', () => document.getElementById('asset-modal').classList.add('hidden'));
             document.getElementById('btn-close-asset-2').addEventListener('click', () => document.getElementById('asset-modal').classList.add('hidden'));
-            document.getElementById('btn-verify-asset').addEventListener('click', () => {
-                const asset = appState.pendingAsset;
-                if (!asset) return;
-                document.getElementById('asset-modal').classList.add('hidden');
-                if (appState.checkedAssets.has(asset.code)) {
-                    showToast(`✓ ${asset.code} already verified in your safety inspection log.`, 'info');
-                    return;
-                }
-                appState.checkedAssets.add(asset.code);
-                appState.score += 20;
-                syncUserToLeaderboard();
-                updateHUDMetrics();
-                showToast(`✓ Verified ${asset.code} (${asset.name}) — +20 pts Preventive Audit Bonus!`, 'success');
-            });
+            document.getElementById('btn-verify-asset').addEventListener('click', saveAssetInspectionReport);
+            document.getElementById('btn-ehs-inspection-report').addEventListener('click', exportEhsInspectionReport);
 
             // Hazard Reporting Modal Severity & Submit Buttons
             document.querySelectorAll('.sev-btn').forEach(btn => {
