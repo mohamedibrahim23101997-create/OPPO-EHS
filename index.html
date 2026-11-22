@@ -505,13 +505,13 @@
             <div id="asset-specs-box" class="bg-slate-950/80 border border-slate-800 rounded-2xl p-3.5 space-y-2 text-xs text-slate-200 mb-3"></div>
             <div class="mb-3">
                 <div class="flex items-center justify-between gap-2 mb-2">
-                    <label class="text-xs font-extrabold text-slate-200">قائمة التحقق التفاعلية</label>
+                    <label id="asset-checklist-title" class="text-xs font-extrabold text-slate-200">قائمة التحقق التفاعلية</label>
                     <span id="asset-check-count" class="text-[10px] text-sky-300 font-bold">0 / 0</span>
                 </div>
                 <div id="asset-checklist" class="space-y-2 max-h-52 overflow-y-auto pr-1"></div>
             </div>
             <div class="mb-3">
-                <label for="asset-inspection-notes" class="block text-xs font-bold text-slate-300 mb-1">ملاحظات المفتش / الإجراء التصحيحي</label>
+                <label id="asset-notes-label" for="asset-inspection-notes" class="block text-xs font-bold text-slate-300 mb-1">ملاحظات المفتش / الإجراء التصحيحي</label>
                 <textarea id="asset-inspection-notes" rows="2" maxlength="1500" placeholder="اكتب الملاحظة، العيب المكتشف، أو الإجراء المطلوب..." class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white focus:border-sky-400 focus:outline-none"></textarea>
             </div>
             <div id="asset-inspection-result" class="text-[11px] rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-slate-300 mb-3">حدد عناصر الفحص ثم احفظ التقرير.</div>
@@ -4079,45 +4079,44 @@
             document.getElementById('leaderboard-modal').classList.remove('hidden');
         }
 
+        const ASSET_UI_I18N = {
+            ar: {status:'محاكاة تدريبية • يلزم التحقق',location:'الموقع',simulation:'بيانات المعدة المعروضة جزء من المحاكاة التدريبية ولا تمثل قراءة ميدانية فعلية. نفّذ الفحص الفعلي وفق إجراءات الموقع.',checklist:'قائمة التحقق التفاعلية',notes:'ملاحظات المفتش / الإجراء التصحيحي',placeholder:'اكتب الملاحظة أو العيب المكتشف أو الإجراء المطلوب...',result:'حدد عناصر الفحص ثم احفظ التقرير.',all:'✓ تم تحديد جميع نقاط الفحص كمطابقة. راجع النتيجة قبل الحفظ.',partial:(a,b)=>'تم التحقق من '+a+' من '+b+' نقاط. النقاط غير المحددة تحتاج إلى تحقق أو متابعة.',saving:'جارٍ حفظ تقرير الفحص...',save:'✓ حفظ تقرير الفحص (+20 نقطة عند أول توثيق)',close:'إغلاق',cancel:'إلغاء',saved:'تم حفظ فحص مطابق في سجل EHS بنجاح.',follow:'تم حفظ التقرير مع نقاط تحتاج إلى متابعة. راجع الملاحظات والإجراءات التصحيحية.',failed:'لم يتم حفظ التقرير. تأكد من تشغيل ترحيل Supabase الجديد ثم أعد المحاولة.',noSession:'تعذر حفظ التقرير: جلسة الموظف أو اتصال Supabase غير متاح.'},
+            en: {status:'SIMULATION • VERIFY',location:'Location',simulation:'Equipment data shown is part of a training simulation and does not represent an actual field reading. Perform real inspections according to site procedures.',checklist:'Interactive Inspection Checklist',notes:'Inspector Notes / Corrective Action',placeholder:'Enter an observation, defect found, or required action...',result:'Select inspection items, then save the report.',all:'✓ All inspection points are marked compliant. Review the result before saving.',partial:(a,b)=>a+' of '+b+' points checked. Unchecked points require verification or follow-up.',saving:'Saving inspection report...',save:'✓ Save Inspection Report (+20 points for first record)',close:'Close',cancel:'Cancel',saved:'Compliant inspection saved successfully to the EHS log.',follow:'Report saved with points requiring follow-up. Review notes and corrective actions.',failed:'Report was not saved. Confirm the new Supabase migration has been run, then try again.',noSession:'Unable to save: employee session or Supabase connection is unavailable.'},
+            zh: {status:'模拟数据 • 请现场核实',location:'位置',simulation:'此处设备数据仅用于培训模拟，并非现场实际读数。实际检查请遵循工厂现场程序。',checklist:'互动检查清单',notes:'检查员备注 / 整改措施',placeholder:'请输入观察情况、发现的缺陷或所需整改措施...',result:'请选择检查项目，然后保存报告。',all:'✓ 所有检查项目均已标记为符合要求。保存前请核实结果。',partial:(a,b)=>'已检查 '+a+' / '+b+' 项。未勾选项目需要核实或跟进。',saving:'正在保存检查报告...',save:'✓ 保存检查报告（首次记录奖励 +20 分）',close:'关闭',cancel:'取消',saved:'符合要求的检查已成功保存至 EHS 记录。',follow:'报告已保存，但仍有项目需要跟进。请查看备注和整改措施。',failed:'报告保存失败。请确认已执行新的 Supabase 数据库迁移，然后重试。',noSession:'无法保存：员工会话或 Supabase 连接不可用。'}
+        };
+        const ASSET_CHECKS_I18N = {
+            ar: [
+                ['جسم الطفاية سليم ولا يوجد صدأ أو تلف أو تسريب ظاهر','مؤشر الضغط في النطاق الأخضر (أو وزن أسطوانة CO₂ ضمن الحد المعتمد)','مسمار الأمان والختم موجودان وغير متضررين','الخرطوم والبشبوري مثبتان وخاليان من الانسداد أو التشقق','بطاقة الفحص الدوري والاختبار الهيدروستاتيكي ساريتان','الطفاية ظاهرة وسهلة الوصول ولا توجد عوائق أمامها'],
+                ['باب اللوحة مغلق ومثبت ولا توجد أجزاء حية مكشوفة','لا توجد أسلاك مكشوفة أو عوازل تالفة أو آثار سخونة','تحذيرات الخطر الكهربائي وبيانات الدوائر واضحة ومقروءة','لا توجد مياه أو أتربة كثيفة أو مواد مخزنة داخل/أمام اللوحة','مساحة الوصول والعمل أمام اللوحة خالية حسب متطلبات الموقع','التأريض ومداخل الكابلات والأغطية سليمة ظاهرياً'],
+                ['لا توجد إنذارات أو أعطال ظاهرة على لوحة التحكم','مصدر التغذية الرئيسي والبطاريات الاحتياطية دون مؤشرات عطل','مفاتيح التشغيل وأغطية اللوحة سليمة ومؤمنة','سجل الاختبار والصيانة محدث','الوصول إلى اللوحة والمنطقة المحيطة بها خالٍ من العوائق'],
+                ['المعدة أو الخزانة سليمة وظاهرة ويمكن الوصول إليها','الخراطيم والوصلات والفوهات موجودة ولا يظهر بها تلف','الصمامات والأغطية ومحابس التشغيل بحالة ظاهرية سليمة','بطاقة الفحص والصيانة محدثة','لا توجد عوائق أمام المعدة أو مسار استخدامها'],
+                ['المعدة سليمة ظاهرياً ولا توجد أجزاء مكسورة أو حادة','وسائل الحماية أو التشغيل متاحة وسليمة ظاهرياً','ملصقات التعريف والتحذير واضحة','الموقع المحيط بالمعدة مرتب وخالٍ من العوائق','سجل الفحص أو الصيانة محدث عند انطباقه']
+            ],
+            en: [
+                ['Extinguisher body is intact with no visible corrosion, damage, or leakage','Pressure gauge is in the green zone (or CO₂ cylinder weight is within the approved limit)','Safety pin and tamper seal are present and undamaged','Hose and nozzle are secured and free from blockage or cracks','Periodic inspection and hydrostatic test tags are valid','Extinguisher is visible, accessible, and unobstructed'],
+                ['Panel door is closed and secured; no exposed live parts','No exposed wires, damaged insulation, or signs of overheating','Electrical hazard warnings and circuit identification are clear and legible','No water, heavy dust, or stored materials inside/in front of the panel','Required working and access clearance in front of the panel is maintained','Earthing, cable entries, and covers appear intact'],
+                ['No visible alarms or faults on the fire alarm control panel','Main power supply and standby batteries show no fault indications','Operating controls and panel covers are intact and secured','Testing and maintenance log is up to date','Access to the panel and surrounding area is unobstructed'],
+                ['Equipment or cabinet is intact, visible, and accessible','Hoses, couplings, and nozzles are present with no visible damage','Valves, caps, and operating controls appear serviceable','Inspection and maintenance tag is up to date','Equipment and its operating path are unobstructed'],
+                ['Equipment appears intact with no broken or sharp parts','Protective and operating devices are available and appear serviceable','Identification and warning labels are clear','Surrounding area is orderly and free of obstructions','Inspection or maintenance record is current where applicable']
+            ],
+            zh: [
+                ['灭火器筒体完好，无明显锈蚀、损坏或泄漏','压力表指针处于绿色区域（或二氧化碳钢瓶重量符合规定）','安全插销和铅封齐全且无损坏','软管和喷嘴安装牢固，无堵塞或裂纹','定期检查及水压试验标签在有效期内','灭火器清晰可见、便于取用且前方无障碍物'],
+                ['配电柜柜门关闭并固定，无裸露带电部件','无裸露电线、绝缘层损坏或过热痕迹','电气危险警示和回路标识清晰可读','柜内及柜前无积水、大量灰尘或存放物品','配电柜前方符合现场要求的操作和通行空间保持畅通','接地、进线孔和防护盖外观完好'],
+                ['火灾报警控制盘无明显报警或故障','主电源和备用电池无故障指示','操作按钮及控制盘外盖完好并固定','测试和维护记录已更新','控制盘及周边区域通道畅通'],
+                ['设备或箱体完好、醒目且便于取用','水带、接头和喷嘴齐全且无明显损坏','阀门、盖板和操作部件外观正常','检查和维护标签已更新','设备前方及操作通道无障碍物'],
+                ['设备外观完好，无破损或锋利部件','防护和操作装置齐全且外观正常','设备标识和警告标签清晰','设备周边整洁且无障碍物','适用时，检查或维护记录保持最新']
+            ]
+        };
+
         function getAssetInspectionChecks(asset) {
             const code = String(asset.code || '').toUpperCase();
-            if (code.startsWith('EXT-')) return [
-                'جسم الطفاية سليم ولا يوجد صدأ أو تلف أو تسريب ظاهر',
-                'مؤشر الضغط في النطاق الأخضر (أو وزن أسطوانة CO₂ ضمن الحد المعتمد)',
-                'مسمار الأمان والختم موجودان وغير متضررين',
-                'الخرطوم والبشبوري مثبتان وخاليان من الانسداد أو التشقق',
-                'بطاقة الفحص الدوري والاختبار الهيدروستاتيكي ساريتان',
-                'الطفاية ظاهرة وسهلة الوصول ولا توجد عوائق أمامها'
-            ];
-            if (code.startsWith('EL-PNL-') || /electrical|distribution|switchgear/i.test(asset.name || '')) return [
-                'باب اللوحة مغلق ومثبت ولا توجد أجزاء حية مكشوفة',
-                'لا توجد أسلاك مكشوفة أو عوازل تالفة أو آثار سخونة',
-                'تحذيرات الخطر الكهربائي وبيانات الدوائر واضحة ومقروءة',
-                'لا توجد مياه أو أتربة كثيفة أو مواد مخزنة داخل/أمام اللوحة',
-                'مساحة الوصول والعمل أمام اللوحة خالية حسب متطلبات الموقع',
-                'التأريض ومداخل الكابلات والأغطية سليمة ظاهرياً'
-            ];
-            if (code.startsWith('FACP')) return [
-                'لا توجد إنذارات أو أعطال ظاهرة على لوحة التحكم',
-                'مصدر التغذية الرئيسي والبطاريات الاحتياطية دون مؤشرات عطل',
-                'مفاتيح التشغيل وأغطية اللوحة سليمة ومؤمنة',
-                'سجل الاختبار والصيانة محدث',
-                'الوصول إلى اللوحة والمنطقة المحيطة بها خالٍ من العوائق'
-            ];
-            if (code.startsWith('HYD') || code.startsWith('FIRE') || code.startsWith('FC-')) return [
-                'المعدة أو الخزانة سليمة وظاهرة ويمكن الوصول إليها',
-                'الخراطيم والوصلات والفوهات موجودة ولا يظهر بها تلف',
-                'الصمامات والأغطية ومحابس التشغيل بحالة ظاهرية سليمة',
-                'بطاقة الفحص والصيانة محدثة',
-                'لا توجد عوائق أمام المعدة أو مسار استخدامها'
-            ];
-            return [
-                'المعدة سليمة ظاهرياً ولا توجد أجزاء مكسورة أو حادة',
-                'وسائل الحماية أو التشغيل متاحة وسليمة ظاهرياً',
-                'ملصقات التعريف والتحذير واضحة',
-                'الموقع المحيط بالمعدة مرتب وخالٍ من العوائق',
-                'سجل الفحص أو الصيانة محدث عند انطباقه'
-            ];
+            const lang = appState.lang || 'ar';
+            const groups = ASSET_CHECKS_I18N[lang] || ASSET_CHECKS_I18N.en;
+            if (code.startsWith('EXT-')) return groups[0];
+            if (code.startsWith('EL-PNL-') || /electrical|distribution|switchgear/i.test(asset.name || '')) return groups[1];
+            if (code.startsWith('FACP')) return groups[2];
+            if (code.startsWith('HYD') || code.startsWith('FIRE') || code.startsWith('FC-')) return groups[3];
+            return groups[4];
         }
 
         function updateAssetInspectionCount() {
@@ -4125,9 +4124,8 @@
             const passed = Array.from(checks).filter(x => x.checked).length;
             document.getElementById('asset-check-count').textContent = `${passed} / ${checks.length}`;
             const result = document.getElementById('asset-inspection-result');
-            result.textContent = passed === checks.length
-                ? '✓ تم تحديد جميع نقاط الفحص كمطابقة. راجع النتيجة قبل الحفظ.'
-                : `تم التحقق من ${passed} من ${checks.length} نقاط. النقاط غير المحددة تحتاج إلى تحقق أو متابعة.`;
+            const t = ASSET_UI_I18N[appState.lang] || ASSET_UI_I18N.en;
+            result.textContent = passed === checks.length ? t.all : t.partial(passed, checks.length);
             result.className = passed === checks.length
                 ? 'text-[11px] rounded-xl bg-emerald-950/50 border border-emerald-500/30 px-3 py-2 text-emerald-200 mb-3'
                 : 'text-[11px] rounded-xl bg-amber-950/40 border border-amber-500/30 px-3 py-2 text-amber-200 mb-3';
@@ -4136,9 +4134,10 @@
         function openSafetyAssetModal(asset) {
             appState.pendingAsset = asset;
             document.getElementById('asset-code-badge').textContent = asset.code;
-            document.getElementById('asset-status-badge').textContent = 'SIMULATION • VERIFY';
+            const ui = ASSET_UI_I18N[appState.lang] || ASSET_UI_I18N.en;
+            document.getElementById('asset-status-badge').textContent = ui.status;
             document.getElementById('asset-modal-title').textContent = asset.name;
-            document.getElementById('asset-zone-sub').textContent = `Location: ${asset.zone}`;
+            document.getElementById('asset-zone-sub').textContent = `${ui.location}: ${asset.zone}`;
             const specs = document.getElementById('asset-specs-box');
             specs.replaceChildren();
             (asset.specs || []).forEach(line => {
@@ -4168,6 +4167,12 @@
                 checklist.appendChild(row);
             });
             document.getElementById('asset-inspection-notes').value = '';
+            document.getElementById('asset-inspection-notes').placeholder = ui.placeholder;
+            document.getElementById('asset-simulation-note').textContent = ui.simulation;
+            document.getElementById('asset-checklist-title').textContent = ui.checklist;
+            document.getElementById('asset-notes-label').textContent = ui.notes;
+            document.getElementById('btn-verify-asset').textContent = ui.save;
+            document.getElementById('btn-close-asset-2').textContent = ui.close;
             updateAssetInspectionCount();
             document.getElementById('asset-modal').classList.remove('hidden');
         }
@@ -4175,7 +4180,7 @@
         async function saveAssetInspectionReport() {
             const asset = appState.pendingAsset;
             if (!asset || !activeUserId || !supabaseClient) {
-                showToast('تعذر حفظ التقرير: جلسة الموظف أو اتصال Supabase غير متاح.', 'error');
+                showToast((ASSET_UI_I18N[appState.lang] || ASSET_UI_I18N.en).noSession, 'error');
                 return;
             }
             const checks = Array.from(document.querySelectorAll('#asset-checklist input[type="checkbox"]')).map((input, index) => ({
@@ -4200,7 +4205,7 @@
             };
             const button = document.getElementById('btn-verify-asset');
             button.disabled = true;
-            button.textContent = 'جارٍ حفظ تقرير الفحص...';
+            button.textContent = (ASSET_UI_I18N[appState.lang] || ASSET_UI_I18N.en).saving;
             try {
                 const { error } = await supabaseClient.from('ehs_asset_inspections').insert(report);
                 if (error) throw error;
@@ -4212,14 +4217,14 @@
                 updateHUDMetrics();
                 document.getElementById('asset-modal').classList.add('hidden');
                 showToast(allPassed
-                    ? 'تم حفظ فحص مطابق في سجل EHS بنجاح.'
-                    : 'تم حفظ التقرير مع نقاط تحتاج إلى متابعة. راجع الملاحظات والإجراءات التصحيحية.', allPassed ? 'success' : 'warning');
+                    ? (ASSET_UI_I18N[appState.lang] || ASSET_UI_I18N.en).saved
+                    : (ASSET_UI_I18N[appState.lang] || ASSET_UI_I18N.en).follow, allPassed ? 'success' : 'warning');
             } catch (error) {
                 console.error('EHS asset inspection save failed:', error);
-                showToast('لم يتم حفظ التقرير. تأكد من تشغيل ترحيل Supabase الجديد ثم أعد المحاولة.', 'error');
+                showToast((ASSET_UI_I18N[appState.lang] || ASSET_UI_I18N.en).failed, 'error');
             } finally {
                 button.disabled = false;
-                button.textContent = '✓ حفظ تقرير الفحص (+20 نقطة عند أول توثيق)';
+                button.textContent = (ASSET_UI_I18N[appState.lang] || ASSET_UI_I18N.en).save;
             }
         }
 
